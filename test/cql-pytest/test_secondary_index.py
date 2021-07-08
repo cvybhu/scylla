@@ -21,6 +21,7 @@ import time
 import pytest
 from cassandra.protocol import SyntaxException, AlreadyExists, InvalidRequest, ConfigurationException, ReadFailure
 from cassandra.query import SimpleStatement
+from cassandra_tests.porting import assert_rows
 
 from util import new_test_table, unique_name
 
@@ -217,3 +218,17 @@ def test_range_deletion(cql, test_keyspace, scylla_only):
         cql.execute(f"DELETE FROM {table} WHERE p = 1 AND c1 > 5 and c1 < 846")
         res = [row.c1 for row in cql.execute(f"SELECT * FROM {table}_c1_idx_index")]
         assert sorted(res) == [x for x in range(1342) if x <= 5 or x >= 846]
+
+# Selecting values using only clustering key should require filtering, but work correctly
+# Reproduces issue #8991
+@pytest.mark.xfail(reason="Select from indexed table using only clustering key breaks. Issue #8991")
+def test_filter_cluster_key(cql, test_keyspace):
+    schema = 'p int, c1 int, c2 int, primary key (p, c1, c2)'
+    with new_test_table(cql, test_keyspace, schema) as table:
+        cql.execute(f"CREATE INDEX ON {table}(c2)")
+        cql.execute(f"INSERT INTO {table} (p, c1, c2) VALUES (0, 1, 1)")
+        cql.execute(f"INSERT INTO {table} (p, c1, c2) VALUES (0, 0, 1)")
+        
+        stmt = SimpleStatement(f"SELECT c1, c2 FROM {table} WHERE c1 = 1 and c2 = 1 ALLOW FILTERING")
+        rows = cql.execute(stmt)
+        assert_rows(rows, [1, 1])
