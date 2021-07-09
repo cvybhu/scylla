@@ -221,7 +221,6 @@ def test_range_deletion(cql, test_keyspace, scylla_only):
 
 # Selecting values using only clustering key should require filtering, but work correctly
 # Reproduces issue #8991
-@pytest.mark.xfail(reason="Select from indexed table using only clustering key breaks. Issue #8991")
 def test_filter_cluster_key(cql, test_keyspace):
     schema = 'p int, c1 int, c2 int, primary key (p, c1, c2)'
     with new_test_table(cql, test_keyspace, schema) as table:

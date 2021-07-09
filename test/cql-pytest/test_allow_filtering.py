@@ -308,6 +308,42 @@ def table4(cql, test_keyspace):
 
 # Selecting from indexed table should using only clustering key should require filtering
 # Variation of #7608 found in #8991
-@pytest.mark.xfail(reason="Select from indexed table using only clustering key should require filtering. Issue #7608")
 def test_select_indexed_cluster(cql, table4):
     check_af_mandatory(cql, table4, 'c1 = 1 AND c2 = 1', lambda row: row.c1 == 1 and row.c2 == 1)
+
+# table5 contains an indexed table with 3 clustering columns.
+# used to test need_filtering() on indexed tables.
+@pytest.fixture(scope="module")
+def table5(cql, test_keyspace):
+    table = test_keyspace + "." + unique_name()
+    cql.execute(f"CREATE TABLE {table} (p int, c1 text, c2 text, c3 int, PRIMARY KEY (p,c1,c2,c3))")
+    cql.execute(f"CREATE INDEX ON {table} (c3)")
+    cql.execute(f"INSERT INTO {table} (p, c1, c2, c3) VALUES (0, 'a', 'b', 0)")
+    cql.execute(f"INSERT INTO {table} (p, c1, c2, c3) VALUES (0, 'a', 'b', 1)")
+
+    everything = list(cql.execute(f"SELECT * FROM {table}"))
+    wait_for_index(cql, table, 'c3', everything)
+    yield (table, everything)
+    cql.execute(f"DROP TABLE {table}")
+
+# Test that new implementation of need_filtering() for indexes works correctly.
+# This implementation is a bit conservative - it might sometimes state
+# that filtering is needed when it isn't actually required, but at least it's safe.
+def test_select_indexed_cluster_three_keys(cql, table5):
+    def check_good_row(row):
+        return row.p == 0 and row.c1 == 'a' and row.c2 == 'b' and row.c3 == 0
+
+    check_af_optional(cql, table5, "c3 = 0", check_good_row)
+    check_af_mandatory(cql, table5, "c1 = 'a' AND c2 = 'b' AND c3 = 0", check_good_row)
+
+    # Doesn't require filtering, but for now we report it does
+    check_af_mandatory(cql, table5, "p = 0 AND c1 = 'a' and c3 = 0", check_good_row)
+
+    check_af_mandatory(cql, table5, "p = 0 AND c1 LIKE 'a' AND c3 = 0", check_good_row)
+    check_af_mandatory(cql, table5, "p = 0 AND c1 = 'a' AND c2 LIKE 'b' AND c3 = 0", check_good_row)
+
+    # Doesn't use an index
+    check_af_optional(cql, table5, "p = 0 AND c1 = 'a' AND c2 = 'b' AND c3 = 0", check_good_row)
+
+    # Doesn't require filtering, but for now we report it does
+    check_af_mandatory(cql, table5, "p = 0 AND c1 = 'a' AND c2 < 'c' AND c3 = 0", check_good_row)
