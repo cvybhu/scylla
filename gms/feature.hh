@@ -48,9 +48,9 @@ class feature final {
 
     feature_service* _service = nullptr;
     sstring _name;
-    bool _enabled = false;
     mutable signal_type _s;
 public:
+    bool _enabled = false;
     using listener_registration = std::any;
     class listener {
         friend class feature;

@@ -89,7 +89,9 @@ feature_service::feature_service(feature_config cfg) : _config(cfg)
         , _alternator_streams_feature(*this, features::ALTERNATOR_STREAMS)
         , _range_scan_data_variant(*this, features::RANGE_SCAN_DATA_VARIANT)
         , _cdc_generations_v2(*this, features::CDC_GENERATIONS_V2)
-{}
+{
+    _correct_idx_token_in_secondary_index_feature._enabled = false;
+}
 
 feature_config feature_config_from_db_config(db::config& cfg, std::set<sstring> disabled) {
     feature_config fcfg;
@@ -135,6 +137,8 @@ void feature_service::enable(const sstring& name) {
         auto&& f = it->second;
         f.get().enable();
     }
+
+    _correct_idx_token_in_secondary_index_feature._enabled = false;
 }
 
 void feature_service::support(const std::string_view& name) {
@@ -267,7 +271,10 @@ void feature_service::enable(const std::set<std::string_view>& list) {
         if (list.contains(f.name())) {
             f.enable();
         }
+
     }
+    
+    _correct_idx_token_in_secondary_index_feature._enabled = false;
 }
 
 } // namespace gms
