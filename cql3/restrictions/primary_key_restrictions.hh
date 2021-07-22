@@ -65,8 +65,6 @@ namespace restrictions {
 
 class partition_key_restrictions: public restriction, public restrictions, public enable_shared_from_this<partition_key_restrictions> {
 public:
-    using bounds_range_type = dht::partition_range;
-
     partition_key_restrictions() = default;
 
     virtual void merge_with(::shared_ptr<restriction> other) = 0;
@@ -75,8 +73,6 @@ public:
         merge_with(restriction);
         return this->shared_from_this();
     }
-
-    virtual std::vector<bounds_range_type> bounds_ranges(const query_options& options) const = 0;
 
     using restrictions::has_supporting_index;
 
@@ -117,8 +113,6 @@ public:
 
 class clustering_key_restrictions : public restriction, public restrictions, public enable_shared_from_this<clustering_key_restrictions> {
 public:
-    using bounds_range_type = query::clustering_range;
-
     clustering_key_restrictions() = default;
 
     virtual void merge_with(::shared_ptr<restriction> other) = 0;
@@ -127,8 +121,6 @@ public:
         merge_with(restriction);
         return this->shared_from_this();
     }
-
-    virtual std::vector<bounds_range_type> bounds_ranges(const query_options& options) const = 0;
 
     using restrictions::has_supporting_index;
 

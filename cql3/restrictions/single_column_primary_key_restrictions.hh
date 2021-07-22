@@ -87,7 +87,6 @@ template<typename ValueType>
 class single_column_primary_key_restrictions : public primary_key_restrictions<ValueType> {
     using range_type = query::range<ValueType>;
     using range_bound = typename range_type::bound;
-    using bounds_range_type = typename primary_key_restrictions<ValueType>::bounds_range_type;
     template<typename OtherValueType>
     friend class single_column_primary_key_restrictions;
 private:
@@ -307,8 +306,6 @@ private:
     }
 
 public:
-    std::vector<bounds_range_type> bounds_ranges(const query_options& options) const override;
-
     std::vector<bytes_opt> values(const query_options& options) const {
         auto src = values_as_keys(options);
         std::vector<bytes_opt> res;
@@ -354,61 +351,6 @@ public:
     virtual bool needs_filtering(const schema& schema) const override;
     virtual unsigned int num_prefix_columns_that_need_not_be_filtered() const override;
 };
-
-template<>
-inline dht::partition_range_vector
-single_column_primary_key_restrictions<partition_key>::bounds_ranges(const query_options& options) const {
-    dht::partition_range_vector ranges;
-    ranges.reserve(size());
-    for (query::range<partition_key>& r : compute_bounds(options)) {
-        if (!r.is_singular()) {
-            throw exceptions::invalid_request_exception("Range queries on partition key values not supported.");
-        }
-        ranges.emplace_back(std::move(r).transform(
-            [this] (partition_key&& k) -> query::ring_position {
-                auto token = dht::get_token(*_schema, k);
-                return { std::move(token), std::move(k) };
-            }));
-    }
-    return ranges;
-}
-
-template<>
-inline std::vector<query::clustering_range>
-single_column_primary_key_restrictions<clustering_key_prefix>::bounds_ranges(const query_options& options) const {
-    auto wrapping_bounds = compute_bounds(options);
-    auto bounds = boost::copy_range<query::clustering_row_ranges>(wrapping_bounds
-            | boost::adaptors::filtered([&](auto&& r) {
-                auto bounds = bound_view::from_range(r);
-                return !bound_view::compare(*_schema)(bounds.second, bounds.first);
-              })
-            | boost::adaptors::transformed([&](auto&& r) { return query::clustering_range(std::move(r));
-    }));
-    auto less_cmp = clustering_key_prefix::less_compare(*_schema);
-    std::sort(bounds.begin(), bounds.end(), [&] (query::clustering_range& x, query::clustering_range& y) {
-        if (!x.start() && !y.start()) {
-            return false;
-        }
-        if (!x.start()) {
-            return true;
-        }
-        if (!y.start()) {
-            return false;
-        }
-        return less_cmp(x.start()->value(), y.start()->value());
-    });
-    auto eq_cmp = clustering_key_prefix::equality(*_schema);
-    bounds.erase(std::unique(bounds.begin(), bounds.end(), [&] (query::clustering_range& x, query::clustering_range& y) {
-        if (!x.start() && !y.start()) {
-            return true;
-        }
-        if (!x.start() || !y.start()) {
-            return false;
-        }
-        return eq_cmp(x.start()->value(), y.start()->value());
-    }), bounds.end());
-    return bounds;
-}
 
 template<>
 inline bool single_column_primary_key_restrictions<partition_key>::needs_filtering(const schema& schema) const {
