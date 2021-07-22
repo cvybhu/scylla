@@ -269,6 +269,14 @@ private:
         }
     }
 
+    /**
+     * Adds restrictions from _clustering_prefix_restrictions to _idx_tbl_ck_prefix.
+     * Translates restrictions to use columns from the index schema instead of the base schema.
+     *
+     * @param idx_tbl_schema Schema of the index table
+     */
+    void add_clustering_restrictions_to_idx_ck_prefix(const schema& idx_tbl_schema);
+
 #if 0
     std::vector<::shared_ptr<index_expression>> get_index_expressions(const query_options& options) {
         if (!_uses_secondary_indexing || _index_restrictions.empty()) {
@@ -492,7 +500,11 @@ public:
 
     /// Prepares internal data for evaluating index-table queries.  Must be called before
     /// get_global_index_clustering_ranges().
-    void prepare_indexed(const schema& idx_tbl_schema, bool is_local);
+    void prepare_indexed_local(const schema& idx_tbl_schema);
+
+    /// Prepares internal data for evaluating index-table queries.  Must be called before
+    /// get_local_index_clustering_ranges().
+    void prepare_indexed_global(const schema& idx_tbl_schema);
 
     /// Calculates clustering ranges for querying a global-index table.
     std::vector<query::clustering_range> get_global_index_clustering_ranges(
@@ -500,6 +512,10 @@ public:
 
     /// Calculates clustering ranges for querying a global-index table for queries with token restrictions present.
     std::vector<query::clustering_range> get_global_index_token_clustering_ranges(
+            const query_options& options, const schema& idx_tbl_schema) const;
+
+    /// Calculates clustering ranges for querying a local-index table.
+    std::vector<query::clustering_range> get_local_index_clustering_ranges(
             const query_options& options, const schema& idx_tbl_schema) const;
 };
 
