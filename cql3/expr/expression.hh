@@ -306,6 +306,10 @@ column_value_tuple::column_value_tuple(Range r)
         : column_value_tuple(std::vector<column_value>(r.begin(), r.end())) {
 }
 
+// Extracts all binary operators which have the given column on their left hand side.
+// Includes both single-column and multi-column restrictions.
+// Does not include token() restrictions.
+extern std::vector<expression> extract_column_restrictions(const expression&, const column_definition&);
 
 } // namespace expr
 
