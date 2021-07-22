@@ -306,6 +306,12 @@ column_value_tuple::column_value_tuple(Range r)
         : column_value_tuple(std::vector<column_value>(r.begin(), r.end())) {
 }
 
+// Extracts all binary operators which have the given column on their left hand side.
+// Includes both single-column and multi-column restrictions.
+// Does not include token() restrictions.
+// Does not include boolean constant restrictions.
+// For example "WHERE c = 1 AND (a, c) = (2, 1) AND token(p) < 2 AND FALSE" will return {"c = 1", "(a, c) = (2, 1)"}.
+std::vector<expression> extract_column_restrictions(const expression&, const column_definition&);
 
 } // namespace expr
 
