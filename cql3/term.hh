@@ -44,8 +44,68 @@
 #include "cql3/assignment_testable.hh"
 #include "cql3/query_options.hh"
 #include "cql3/values.hh"
+#include "functions/scalar_function.hh"
+#include "cql3/cql_value.hh"
 
 namespace cql3 {
+
+// Rewrite namespace to hold new structs during transition to new term representation.
+namespace rewrite {
+    // Delayed values are like cql_value, but some elements are defined as bound values in a query.
+    // This means that to get the actual cql_value, bound variable values are needed.
+    struct bound_value;
+    struct delayed_tuple;
+    struct delayed_list;
+    struct delayed_set;
+    struct delayed_map;
+    struct delayed_function;
+    struct delayed_user_type;
+
+    using delayed_cql_value = std::variant<bound_value,
+                                           delayed_tuple,
+                                           delayed_list,
+                                           delayed_set,
+                                           delayed_map,
+                                           delayed_function,
+                                           delayed_user_type>;
+
+    // Term is either a known cql_value or a delayed value.
+    using term = std::variant<cql_value, delayed_cql_value>;
+
+    // A value that is only defined as a bind marker.
+    // Once bound variable are given, it's converted to an actual cql_value.
+    struct bound_value {
+        int32_t _bind_index;
+        lw_shared_ptr<column_specification> _receiver;
+    };
+
+    struct delayed_tuple {
+        std::vector<term> elements;
+    };
+
+    struct delayed_list {
+        std::vector<term> elements;
+    };
+
+    struct delayed_set {
+        std::vector<term> elements;
+    };
+
+    struct delayed_map {
+        std::vector<std::pair<term, term>> elements;
+    };
+
+    // Function call that has bound values in arguments or requires special execution.
+    // Later replaced with the replaced value.
+    struct delayed_function {
+        shared_ptr<functions::scalar_function> function;
+        std::vector<term> arguments;
+    };
+
+    struct delayed_user_type {
+        std::map<sstring, term> fields;
+    };
+}
 
 class terminal;
 class variable_specifications;
