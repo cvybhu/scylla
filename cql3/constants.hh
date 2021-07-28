@@ -74,6 +74,10 @@ public:
         virtual cql3::raw_value get(const query_options& options) override { return _bytes; }
         virtual cql3::raw_value_view bind_and_get(const query_options& options) override { return _bytes.to_view(); }
         virtual sstring to_string() const override { return _bytes.to_view().with_value([] (const FragmentedView auto& v) { return to_hex(v); }); }
+
+        virtual rewrite::term to_new_term() const override {
+            return rewrite::term(cql_value(simple_value{_bytes}));
+        }
     };
 
     static thread_local const ::shared_ptr<value> UNSET_VALUE;
@@ -85,6 +89,10 @@ public:
             null_value() : value(cql3::raw_value::make_null()) {}
             virtual ::shared_ptr<terminal> bind(const query_options& options) override { return {}; }
             virtual sstring to_string() const override { return "null"; }
+
+            virtual rewrite::term to_new_term() const override {
+                return rewrite::term(cql_value(cql3::null_value{}));
+            }
         };
     public:
         static thread_local const ::shared_ptr<terminal> NULL_VALUE;
@@ -199,6 +207,10 @@ public:
                 return UNSET_VALUE;
             }
             return ::make_shared<constants::value>(cql3::raw_value::make_value(bytes));
+        }
+
+        virtual rewrite::term to_new_term() const override {
+            return rewrite::term(rewrite::delayed_cql_value(rewrite::bound_value{_bind_index, _receiver}));
         }
     };
 
