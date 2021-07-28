@@ -44,8 +44,104 @@
 #include "cql3/assignment_testable.hh"
 #include "cql3/query_options.hh"
 #include "cql3/values.hh"
+#include "functions/scalar_function.hh"
+#include "cql3/cql_value.hh"
 
 namespace cql3 {
+
+// Rewrite namespace to hold new structs during transition
+namespace rewrite {
+    struct term;
+
+    // Delayed values have some bound values inside.
+    // That means they need to get the bound values from a query to become cql_values.
+    struct bound_value {
+        int32_t _bind_index;
+        lw_shared_ptr<column_specification> _receiver;
+
+        cql_value bind(const query_options& options) const {
+            throw std::runtime_error("bound_value::bind is not implemented");
+        }
+    };
+
+    struct delayed_tuple {
+        std::vector<term> elements;
+
+        cql_value bind(const query_options& options) const {
+            throw std::runtime_error("delayed_tuple::bind is not implemented");
+        }
+    };
+
+    struct delayed_list {
+        std::vector<term> elements;
+
+        cql_value bind(const query_options& options) const {
+            throw std::runtime_error("delayed_list::bind is not implemented");
+        }
+    };
+
+    struct delayed_set {
+        std::vector<term> elements;
+
+        cql_value bind(const query_options& options) const {
+            throw std::runtime_error("delayed_set::bind is not implemented");
+        }
+    };
+
+    struct delayed_map {
+        std::vector<std::pair<term, term>> elements;
+
+        cql_value bind(const query_options& options) const {
+            throw std::runtime_error("delayed_map::bind is not implemented");
+        }
+    };
+
+    struct delayed_function {
+        shared_ptr<functions::scalar_function> function;
+        std::vector<term> arguments;
+
+        cql_value bind(const query_options& options) const {
+            throw std::runtime_error("delayed_function::bind is not implemented");
+        }
+    };
+
+    struct delayed_user_type {
+        std::map<sstring, term> fields;
+
+        cql_value bind(const query_options& options) const {
+            throw std::runtime_error("delayed_user_type::bind is not implemented");
+        }
+    };
+
+    struct delayed_cql_value {
+        std::variant<bound_value,
+                     delayed_tuple,
+                     delayed_list,
+                     delayed_set,
+                     delayed_map,
+                     delayed_function,
+                     delayed_user_type> value;
+
+        template<class T>
+        delayed_cql_value(T&& val) : value(std::forward<T>(val)) {}
+
+        cql_value bind(const query_options& options) const {
+            throw std::runtime_error("delayed_cql_value::bind is not implemented");
+        }
+    };
+
+    // Term is either a known cql_value or a delayed value
+    struct term {
+        std::variant<cql_value, delayed_cql_value> value;
+
+        template<class T>
+        term(T&& val) : value(std::forward<T>(val)) {}
+
+        cql_value bind(const query_options& options) const {
+            throw std::runtime_error("term::bind is not implemented");
+        }
+    };
+}
 
 class terminal;
 class variable_specifications;
