@@ -201,6 +201,9 @@ public:
         return out << t.to_string();
     }
 
+    virtual rewrite::term to_new_term() const {
+        throw std::runtime_error("term::to_new_term() is not implemented by default!");
+    }
     /**
      * A parsed, non prepared (thus untyped) term.
      *
