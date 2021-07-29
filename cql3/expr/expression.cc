@@ -172,6 +172,10 @@ bool equal(term& rhs, const column_value& lhs, const column_value_eval_bag& bag)
     return equal(to_managed_bytes_opt(rhs.bind_and_get(bag.options)), lhs, bag);
 }
 
+bool equal(const rewrite::term& rhs, const column_value& lhs, const column_value_eval_bag& bag) {
+    return equal(to_managed_bytes_opt(rhs.bind(bag.options).to_raw_value().to_view()), lhs, bag);
+}
+
 /// True iff columns' values equal t.
 bool equal(term& t, const column_value_tuple& columns_tuple, const column_value_eval_bag& bag) {
     const auto tup = get_tuple(t, bag.options);
@@ -179,6 +183,27 @@ bool equal(term& t, const column_value_tuple& columns_tuple, const column_value_
         throw exceptions::invalid_request_exception("multi-column equality has right-hand side that isn't a tuple");
     }
     const auto& rhs = tup->get_elements();
+    if (rhs.size() != columns_tuple.elements.size()) {
+        throw exceptions::invalid_request_exception(
+                format("tuple equality size mismatch: {} elements on left-hand side, {} on right",
+                       columns_tuple.elements.size(), rhs.size()));
+    }
+    return boost::equal(rhs, columns_tuple.elements, [&] (const managed_bytes_opt& b, const column_value& lhs) {
+        return equal(b, lhs, bag);
+    });
+}
+
+
+/// True iff columns' values equal t.
+bool equal(const rewrite::term& t, const column_value_tuple& columns_tuple, const column_value_eval_bag& bag) {
+    cql_value cql_val = t.bind(bag.options);
+
+    if (!std::holds_alternative<tuple_value>(cql_val.value)) {
+        throw exceptions::invalid_request_exception("multi-column equality has right-hand side that isn't a tuple");
+    }
+    const tuple_value& tup = std::get<tuple_value>(cql_val.value);
+
+    std::vector<managed_bytes_opt> rhs = tup.get_serialized_elements();
     if (rhs.size() != columns_tuple.elements.size()) {
         throw exceptions::invalid_request_exception(
                 format("tuple equality size mismatch: {} elements on left-hand side, {} on right",
@@ -397,17 +422,30 @@ bool like(const column_value& cv, const raw_value_view& pattern, const column_va
 /// True iff the column value is in the set defined by rhs.
 bool is_one_of(const column_value& col, term& rhs, const column_value_eval_bag& bag) {
     // RHS is prepared differently for different CQL cases.  Cast it dynamically to discern which case this is.
-    if (auto dv = dynamic_cast<lists::delayed_value*>(&rhs)) {
+    rewrite::term new_rhs = rhs.to_new_term();
+    if (!std::holds_alternative<rewrite::delayed_cql_value>(new_rhs.value)) {
+        throw std::logic_error("unexpected term type in is_one_of(single column)");
+    }
+
+    const rewrite::delayed_cql_value& delayed_val = std::get<rewrite::delayed_cql_value>(new_rhs.value);
+
+    if (auto dv = std::get_if<rewrite::delayed_list>(&delayed_val.value)) {
         // This is `a IN (1,2,3)`.  RHS elements are themselves terms.
-        return boost::algorithm::any_of(dv->get_elements(), [&] (const ::shared_ptr<term>& t) {
-                return equal(*t, col, bag);
+        return boost::algorithm::any_of(dv->elements, [&] (const rewrite::term& t) {
+                return equal(t, col, bag);
             });
-    } else if (auto mkr = dynamic_cast<lists::marker*>(&rhs)) {
+    } else if (auto mkr = std::get_if<rewrite::bound_value>(&delayed_val.value)) {
         // This is `a IN ?`.  RHS elements are values representable as bytes_opt.
-        const auto values = static_pointer_cast<lists::value>(mkr->bind(bag.options));
-        statements::request_validations::check_not_null(
-                values, "Invalid null value for column %s", col.col->name_as_text());
-        return boost::algorithm::any_of(values->get_elements(), [&] (const managed_bytes_opt& b) {
+        cql_value cql_val = mkr->bind(bag.options);
+
+        if (cql_val == cql_value(null_value{})) {
+            statements::request_validations::check_not_null(
+                false, "Invalid null value for column %s", col.col->name_as_text());
+        }
+
+        const list_value& list_val = std::get<list_value>(cql_val.value);
+        
+        return boost::algorithm::any_of(list_val.get_serialized_elements(), [&] (const managed_bytes_opt& b) {
             return equal(b, col, bag);
         });
     }
@@ -417,10 +455,17 @@ bool is_one_of(const column_value& col, term& rhs, const column_value_eval_bag& 
 /// True iff the tuple of column values is in the set defined by rhs.
 bool is_one_of(const column_value_tuple& tuple, term& rhs, const column_value_eval_bag& bag) {
     // RHS is prepared differently for different CQL cases.  Cast it dynamically to discern which case this is.
-    if (auto dv = dynamic_cast<lists::delayed_value*>(&rhs)) {
+    rewrite::term new_rhs = rhs.to_new_term();
+    if (!std::holds_alternative<rewrite::delayed_cql_value>(new_rhs.value)) {
+        throw std::logic_error("unexpected term type in is_one_of(single column)");
+    }
+
+    const rewrite::delayed_cql_value& delayed_val = std::get<rewrite::delayed_cql_value>(new_rhs.value);
+
+    if (auto dv = std::get_if<rewrite::delayed_list>(&delayed_val.value)) {
         // This is `(a,b) IN ((1,1),(2,2),(3,3))`.  RHS elements are themselves terms.
-        return boost::algorithm::any_of(dv->get_elements(), [&] (const ::shared_ptr<term>& t) {
-                return equal(*t, tuple, bag);
+        return boost::algorithm::any_of(dv->elements, [&] (const rewrite::term& t) {
+                return equal(t, tuple, bag);
             });
     } else if (auto mkr = dynamic_cast<tuples::in_marker*>(&rhs)) {
         // This is `(a,b) IN ?`.  RHS elements are themselves tuples, represented as vector<managed_bytes_opt>.
