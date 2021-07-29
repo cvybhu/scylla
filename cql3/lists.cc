@@ -371,17 +371,24 @@ lists::do_append(shared_ptr<term> value,
         const clustering_key_prefix& prefix,
         const column_definition& column,
         const update_parameters& params) {
-    auto&& list_value = dynamic_pointer_cast<lists::value>(value);
+
     if (column.type->is_multi_cell()) {
         // If we append null, do nothing. Note that for Setter, we've
         // already removed the previous value so we're good here too
-        if (!value || value == constants::UNSET_VALUE) {
+        if (!value) { // TODO: is nullptr shared_ptr representing null??? There is constants::null_literal::null_value
+            return;
+        }
+
+        cql_value cql_val = std::get<cql_value>(value->to_new_term().value);
+        list_value lvalue = std::get<list_value>(cql_val.value);
+
+        if (cql_val == cql_value(unset_value{})) {
             return;
         }
 
         auto ltype = static_cast<const list_type_impl*>(column.type.get());
 
-        auto&& to_add = list_value->_elements;
+        std::vector<managed_bytes_opt> to_add = lvalue.get_serialized_elements();
         collection_mutation_description appended;
         appended.cells.reserve(to_add.size());
         for (auto&& e : to_add) {
@@ -404,7 +411,9 @@ lists::do_append(shared_ptr<term> value,
         if (!value) {
             m.set_cell(prefix, column, params.make_dead_cell());
         } else {
-            auto newv = list_value->get_with_protocol_version(cql_serialization_format::internal());
+            cql_value cql_val = std::get<cql_value>(value->to_new_term().value);
+            list_value lvalue = std::get<list_value>(cql_val.value);
+            auto newv = lvalue.get_with_protocol_version(cql_serialization_format::internal());
             m.set_cell(prefix, column, params.make_cell(*column.type, newv));
         }
     }
@@ -470,7 +479,7 @@ lists::discarder::execute(mutation& m, const clustering_key_prefix& prefix, cons
 
     auto&& existing_list = params.get_prefetched_list(m.key(), prefix, column);
     // We want to call bind before possibly returning to reject queries where the value provided is not a list.
-    auto&& value = _t->bind(params._options);
+    cql_value value = _t->to_new_term().bind(params._options);
 
     if (!existing_list) {
         return;
@@ -482,12 +491,12 @@ lists::discarder::execute(mutation& m, const clustering_key_prefix& prefix, cons
         return;
     }
 
-    if (!value || value == constants::UNSET_VALUE) {
+    if (value == cql_value(null_value{}) || value == cql_value(unset_value{})) {
         return;
     }
 
-    auto lvalue = dynamic_pointer_cast<lists::value>(value);
-    assert(lvalue);
+    assert(std::holds_alternative<list_value>(value.value));
+    list_value lvalue = std::get<list_value>(value.value);
 
     auto ltype = static_cast<const list_type_impl*>(column.type.get());
 
@@ -495,7 +504,11 @@ lists::discarder::execute(mutation& m, const clustering_key_prefix& prefix, cons
     // Meaning that if toDiscard is big, converting it to a HashSet might be more efficient. However,
     // the read-before-write this operation requires limits its usefulness on big lists, so in practice
     // toDiscard will be small and keeping a list will be more efficient.
-    auto&& to_discard = lvalue->_elements;
+    std::vector<managed_bytes_opt> to_discard;
+    for (const cql_value& elem : lvalue.elements) {
+        to_discard.emplace_back(elem.to_raw_value().to_bytes());
+    }
+
     collection_mutation_description mnew;
     for (auto&& cell : elist) {
         auto has_value = [&] (bytes_view value) {
@@ -520,19 +533,23 @@ lists::discarder_by_index::requires_read() const {
 void
 lists::discarder_by_index::execute(mutation& m, const clustering_key_prefix& prefix, const update_parameters& params) {
     assert(column.type->is_multi_cell()); // "Attempted to delete an item by index from a frozen list";
-    auto&& index = _t->bind(params._options);
-    if (!index) {
+    ::shared_ptr<terminal> bound = _t->bind(params._options);
+    if (!bound) {
+        return;
+    }
+    cql_value index = std::get<cql_value>(bound->to_new_term().value);
+    if (index == cql_value(null_value{})) {
         throw exceptions::invalid_request_exception("Invalid null value for list index");
     }
-    if (index == constants::UNSET_VALUE) {
+    if (index == cql_value(unset_value{})) {
         return;
     }
 
-    auto cvalue = dynamic_pointer_cast<constants::value>(index);
-    assert(cvalue);
+    assert(std::holds_alternative<simple_value>(index.value));
+    simple_value svalue = std::get<simple_value>(index.value);
 
     auto&& existing_list_opt = params.get_prefetched_list(m.key(), prefix, column);
-    int32_t idx = cvalue->_bytes.to_view().deserialize<int32_t>(*int32_type);
+    int32_t idx = svalue.to_raw_value().to_view().deserialize<int32_t>(*int32_type);
 
     if (!existing_list_opt) {
         throw exceptions::invalid_request_exception("Attempted to delete an element from a list which is null");
