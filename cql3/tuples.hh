@@ -136,6 +136,10 @@ public:
         virtual sstring to_string() const override {
             return format("({})", join(", ", _elements));
         }
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     /**
@@ -192,6 +196,10 @@ public:
             // We don't "need" that override but it saves us the allocation of a Value object if used
             return cql3::raw_value_view::make_temporary(cql3::raw_value::make_value(_type->build_value_fragmented(bind_internal(options))));
         }
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     /**
@@ -219,6 +227,10 @@ public:
             std::transform(_elements.begin(), _elements.end(), tuples.begin(), &tuples::tuple_to_string<managed_bytes_opt>);
             return tuple_to_string(tuples);
         }
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     /**
@@ -316,6 +328,10 @@ public:
                 return make_shared<tuples::value>(value::from_serialized(value, type));
             }
         }
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     /**
@@ -326,6 +342,10 @@ public:
         in_marker(int32_t bind_index, lw_shared_ptr<column_specification> receiver);
 
         virtual shared_ptr<terminal> bind(const query_options& options) override;
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     template <typename T>

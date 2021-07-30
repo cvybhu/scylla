@@ -82,6 +82,10 @@ public:
         virtual assignment_testable::test_result test_assignment(database& db, const sstring& keyspace, const column_specification& receiver) const override;
         virtual sstring to_string() const override;
     };
+
+    virtual rewrite::term to_new_term() const override {
+        throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+    };
 };
 
 }

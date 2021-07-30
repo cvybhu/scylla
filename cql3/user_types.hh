@@ -84,6 +84,10 @@ public:
         const std::vector<managed_bytes_opt>& get_elements() const;
         virtual std::vector<managed_bytes_opt> copy_elements() const override;
         virtual sstring to_string() const override;
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     // Same purpose than Lists.DelayedValue, except we do handle bind marker in that case
@@ -99,6 +103,10 @@ public:
     public:
         virtual shared_ptr<terminal> bind(const query_options& options) override;
         virtual cql3::raw_value_view bind_and_get(const query_options& options) override;
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     class marker : public abstract_marker {
@@ -110,6 +118,10 @@ public:
         }
 
         virtual shared_ptr<terminal> bind(const query_options& options) override;
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     class setter : public operation {

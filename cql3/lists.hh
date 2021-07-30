@@ -87,6 +87,10 @@ public:
         virtual std::vector<managed_bytes_opt> copy_elements() const override;
         virtual sstring to_string() const;
         friend class lists;
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
     /**
      * Basically similar to a Value, but with some non-pure function (that need
@@ -109,6 +113,10 @@ public:
         const std::vector<shared_ptr<term>>& get_elements() const {
             return _elements;
         }
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     /**
@@ -120,6 +128,10 @@ public:
             : abstract_marker{bind_index, std::move(receiver)}
         { }
         virtual ::shared_ptr<terminal> bind(const query_options& options) override;
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
 public:

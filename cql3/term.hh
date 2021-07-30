@@ -48,6 +48,7 @@
 #include "cql3/cql_value.hh"
 
 namespace cql3 {
+class term;
 
 // Rewrite namespace to hold new structs during transition to new term representation.
 namespace rewrite {
@@ -164,6 +165,9 @@ public:
     friend std::ostream& operator<<(std::ostream& out, const term& t) {
         return out << t.to_string();
     }
+
+    // Converts old term to the matching struct in new variant representation
+    virtual rewrite::term to_new_term() const = 0;
 
     /**
      * A parsed, non prepared (thus untyped) term.

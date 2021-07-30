@@ -83,6 +83,10 @@ public:
         virtual managed_bytes get_with_protocol_version(cql_serialization_format sf) override;
         bool equals(const set_type_impl& st, const value& v);
         virtual sstring to_string() const override;
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     // See Lists.DelayedValue
@@ -96,12 +100,20 @@ public:
         virtual bool contains_bind_marker() const override;
         virtual void collect_marker_specification(variable_specifications& bound_names) const override;
         virtual shared_ptr<terminal> bind(const query_options& options);
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     class marker : public abstract_marker {
     public:
         marker(int32_t bind_index, lw_shared_ptr<column_specification> receiver);
         virtual ::shared_ptr<terminal> bind(const query_options& options) override;
+
+        virtual rewrite::term to_new_term() const override {
+            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        };
     };
 
     class setter : public operation {
