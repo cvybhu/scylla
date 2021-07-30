@@ -105,7 +105,7 @@ namespace rewrite {
     };
 
     struct delayed_map {
-        std::vector<std::pair<term, term>> elements;
+        std::map<term, term> elements;
 
         bool operator==(const delayed_map& other) const {return true;}
         bool operator<(const delayed_map& other) const {return true;}

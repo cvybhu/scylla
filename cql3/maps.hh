@@ -77,9 +77,11 @@ public:
     class value : public terminal, collection_terminal {
     public:
         std::map<managed_bytes, managed_bytes, serialized_compare> map;
+        data_type _keys_type;
+        data_type _values_type;
 
-        value(std::map<managed_bytes, managed_bytes, serialized_compare> map)
-            : map(std::move(map)) {
+        value(std::map<managed_bytes, managed_bytes, serialized_compare> map, data_type keys_type, data_type values_type)
+            : map(std::move(map)), _keys_type(std::move(keys_type)), _values_type(std::move(values_type)) {
         }
         static value from_serialized(const raw_value_view& value, const map_type_impl& type, cql_serialization_format sf);
         virtual cql3::raw_value get(const query_options& options) override;
@@ -88,7 +90,16 @@ public:
         virtual sstring to_string() const;
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            std::map<cql_value, cql_value> new_map;
+
+            for (const auto& [key, value] : map) {
+                cql_value key_value = cql_value(serialized_value{to_bytes(key), _keys_type});
+                cql_value value_value = cql_value(serialized_value{to_bytes(value), _values_type});
+                
+                new_map.emplace(std::move(key_value), std::move(value_value));
+            }
+
+            return rewrite::term(cql_value(map_value{new_map}));
         };
     };
 
@@ -96,17 +107,30 @@ public:
     class delayed_value : public non_terminal {
         serialized_compare _comparator;
         std::unordered_map<shared_ptr<term>, shared_ptr<term>> _elements;
+        data_type _keys_type;
+        data_type _values_type;
     public:
         delayed_value(serialized_compare comparator,
-                      std::unordered_map<shared_ptr<term>, shared_ptr<term>> elements)
-                : _comparator(std::move(comparator)), _elements(std::move(elements)) {
+                      std::unordered_map<shared_ptr<term>, shared_ptr<term>> elements,
+                      data_type keys_type,
+                      data_type values_type)
+                : _comparator(std::move(comparator)),
+                  _elements(std::move(elements)),
+                  _keys_type(std::move(keys_type)),
+                  _values_type(std::move(values_type)) {
         }
         virtual bool contains_bind_marker() const override;
         virtual void collect_marker_specification(variable_specifications& bound_names) const override;
         shared_ptr<terminal> bind(const query_options& options);
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            std::map<rewrite::term, rewrite::term> new_elements;
+
+            for (const auto& [key, value] : _elements) {
+                new_elements.emplace(rewrite::to_new_term(key), rewrite::to_new_term(value));
+            }
+
+            return rewrite::term(rewrite::delayed_cql_value(rewrite::delayed_map{new_elements}));
         };
     };
 

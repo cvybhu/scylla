@@ -88,9 +88,13 @@ maps::literal::prepare(database& db, const sstring& keyspace, lw_shared_ptr<colu
 
         values.emplace(k, v);
     }
+    const map_type_impl& map_type_ref = dynamic_cast<const map_type_impl&>(receiver->type->without_reversed());
+    const data_type& keys_type = map_type_ref.get_keys_type();
     delayed_value value(
-            dynamic_cast<const map_type_impl&>(receiver->type->without_reversed()).get_keys_type()->as_less_comparator(),
-            values);
+            keys_type->as_less_comparator(),
+            values,
+            keys_type,
+            map_type_ref.get_values_type());
     if (all_terminal) {
         return value.bind(query_options::DEFAULT);
     } else {
@@ -176,7 +180,7 @@ maps::value::from_serialized(const raw_value_view& fragmented_value, const map_t
                             type.get_values_type()->decompose(e.second));
             }
         }
-        return maps::value(std::move(map));
+        return maps::value(std::move(map), type.get_keys_type(), type.get_values_type());
     } catch (marshal_exception& e) {
         throw exceptions::invalid_request_exception(e.what());
     }
@@ -260,7 +264,7 @@ maps::delayed_value::bind(const query_options& options) {
         }
         buffers.emplace(*to_managed_bytes_opt(key_bytes), *to_managed_bytes_opt(value_bytes));
     }
-    return ::make_shared<value>(std::move(buffers));
+    return ::make_shared<value>(std::move(buffers), _keys_type, _values_type);
 }
 
 ::shared_ptr<terminal>
