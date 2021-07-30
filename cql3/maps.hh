@@ -142,7 +142,7 @@ public:
         virtual ::shared_ptr<terminal> bind(const query_options& options) override;
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            return rewrite::term(rewrite::delayed_cql_value(rewrite::bound_value{_bind_index, _receiver}));
         };
     };
 
