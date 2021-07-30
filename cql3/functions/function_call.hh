@@ -84,7 +84,14 @@ public:
     };
 
     virtual rewrite::term to_new_term() const override {
-        throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+        std::vector<rewrite::term> new_arguments;
+        new_arguments.reserve(_terms.size());
+
+        for (const ::shared_ptr<term>& arg : _terms) {
+            new_arguments.emplace_back(rewrite::to_new_term(arg));
+        }
+
+        return rewrite::term(rewrite::delayed_cql_value(rewrite::delayed_function{_fun, std::move(new_arguments)}));
     };
 };
 
