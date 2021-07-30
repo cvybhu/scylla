@@ -52,7 +52,7 @@ sets::literal::prepare(database& db, const sstring& keyspace, lw_shared_ptr<colu
         if (dynamic_pointer_cast<const map_type_impl>(receiver->type)) {
             // use empty_type for comparator, set is empty anyway.
             std::map<managed_bytes, managed_bytes, serialized_compare> m(empty_type->as_less_comparator());
-            return ::make_shared<maps::value>(std::move(m));
+            return ::make_shared<maps::value>(std::move(m), empty_type, empty_type);
         }
     }
 
