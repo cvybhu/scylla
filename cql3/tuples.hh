@@ -138,7 +138,18 @@ public:
         }
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            std::vector<cql_value> new_elements;
+            new_elements.reserve(_elements.size());
+
+            for (const managed_bytes_opt& elem : _elements) {
+                if (elem.has_value()) {
+                    new_elements.emplace_back(serialized_value{to_bytes(*elem)});
+                } else {
+                    new_elements.emplace_back(null_value{});
+                }
+            }
+
+            return rewrite::term(cql_value(tuple_value{new_elements}));
         };
     };
 
@@ -198,7 +209,14 @@ public:
         }
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            std::vector<rewrite::term> new_elements;
+            new_elements.reserve(_elements.size());
+
+            for (const ::shared_ptr<term>& elem : _elements) {
+                new_elements.emplace_back(rewrite::to_new_term(elem));
+            }
+
+            return rewrite::term(rewrite::delayed_cql_value(rewrite::delayed_tuple{std::move(new_elements)}));
         };
     };
 
@@ -229,8 +247,26 @@ public:
         }
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
-        };
+            std::vector<cql_value> new_elements;
+            new_elements.reserve(_elements.size());
+
+            for (const std::vector<managed_bytes_opt>& elem : _elements) {
+                std::vector<cql_value> new_tuple;
+                new_tuple.reserve(elem.size());
+
+                for (const managed_bytes_opt& val : elem) {
+                    if (val.has_value()) {
+                        new_tuple.emplace_back(serialized_value{to_bytes(*val)});
+                    } else {
+                        new_tuple.emplace_back(null_value{});
+                    }
+                }
+
+                new_elements.emplace_back(tuple_value{std::move(new_tuple)});
+            }
+
+            return rewrite::term(cql_value(tuple_value{std::move(new_elements)}));
+        }
     };
 
     /**
@@ -330,7 +366,7 @@ public:
         }
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            return rewrite::term(rewrite::delayed_cql_value(rewrite::bound_value{_bind_index, _receiver}));
         };
     };
 
@@ -344,7 +380,7 @@ public:
         virtual shared_ptr<terminal> bind(const query_options& options) override;
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            return rewrite::term(rewrite::delayed_cql_value(rewrite::bound_value{_bind_index, _receiver}));
         };
     };
 
