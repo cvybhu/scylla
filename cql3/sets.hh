@@ -74,9 +74,10 @@ public:
     class value : public terminal, collection_terminal {
     public:
         std::set<managed_bytes, serialized_compare> _elements;
+        data_type _elements_type;
     public:
-        value(std::set<managed_bytes, serialized_compare> elements)
-                : _elements(std::move(elements)) {
+        value(std::set<managed_bytes, serialized_compare> elements, data_type elements_type)
+                : _elements(std::move(elements)), _elements_type(std::move(elements_type)) {
         }
         static value from_serialized(const raw_value_view& v, const set_type_impl& type, cql_serialization_format sf);
         virtual cql3::raw_value get(const query_options& options) override;
@@ -85,7 +86,13 @@ public:
         virtual sstring to_string() const override;
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            std::set<cql_value> new_elements;
+
+            for (const managed_bytes& elem : _elements) {
+                new_elements.emplace(cql_value(serialized_value{to_bytes(elem), _elements_type}));
+            }
+
+            return rewrite::term(cql_value(set_value{std::move(new_elements)}));
         };
     };
 
@@ -93,16 +100,23 @@ public:
     class delayed_value : public non_terminal {
         serialized_compare _comparator;
         std::vector<shared_ptr<term>> _elements;
+        data_type _elements_type;
     public:
-        delayed_value(serialized_compare comparator, std::vector<shared_ptr<term>> elements)
-            : _comparator(std::move(comparator)), _elements(std::move(elements)) {
+        delayed_value(serialized_compare comparator, std::vector<shared_ptr<term>> elements, data_type elements_type)
+            : _comparator(std::move(comparator)), _elements(std::move(elements)), _elements_type(elements_type) {
         }
         virtual bool contains_bind_marker() const override;
         virtual void collect_marker_specification(variable_specifications& bound_names) const override;
         virtual shared_ptr<terminal> bind(const query_options& options);
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            std::set<rewrite::term> new_elements;
+
+            for (const ::shared_ptr<term>& elem : _elements) {
+                new_elements.emplace(rewrite::to_new_term(elem));
+            }
+
+            return rewrite::term(rewrite::delayed_cql_value(rewrite::delayed_set{std::move(new_elements)}));
         };
     };
 
@@ -112,7 +126,7 @@ public:
         virtual ::shared_ptr<terminal> bind(const query_options& options) override;
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            return rewrite::term(rewrite::delayed_cql_value(rewrite::bound_value{_bind_index, _receiver}));
         };
     };
 

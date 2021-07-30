@@ -35,9 +35,23 @@
 namespace cql3 {
 
 struct null_value {
+    bool operator==(const null_value&) const {
+        return true;
+    }
+
+    bool operator<(const null_value&) const {
+        return false;
+    }
 };
 
 struct unset_value {
+    bool operator==(const unset_value&) const {
+        return true;
+    }
+
+    bool operator<(const unset_value&) const {
+        return false;
+    }
 };
 
 class raw_value;

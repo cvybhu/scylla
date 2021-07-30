@@ -65,28 +65,47 @@ namespace cql3 {
                                    user_type_value>;
 
     // A value that has been already serialized to bytes
-    // Not null and not unset
+    // Not null or unset
     struct serialized_value {
         bytes data;
+        std::optional<data_type> type;
+
+        bool operator==(const serialized_value& other) const;
+        bool operator<(const serialized_value& other) const;
     };
 
     struct tuple_value {
         std::vector<cql_value> elements;
+
+        bool operator==(const tuple_value& other) const;
+        bool operator<(const tuple_value& other) const;
     };
 
     struct list_value {
         std::vector<cql_value> elements;
+
+        bool operator==(const list_value& other) const;
+        bool operator<(const list_value& other) const;
     };
 
     struct set_value {
-        std::vector<cql_value> elements;
+        std::set<cql_value> elements;
+
+        bool operator==(const set_value& other) const;
+        bool operator<(const set_value& other) const;
     };
 
     struct map_value {
         std::map<cql_value, cql_value> elements;
+
+        bool operator==(const map_value& other) const;
+        bool operator<(const map_value& other) const;
     };
 
     struct user_type_value {
         std::map<sstring, cql_value> fields;
+
+        bool operator==(const user_type_value& other) const;
+        bool operator<(const user_type_value& other) const;
     };
 }

@@ -74,10 +74,10 @@ sets::literal::prepare(database& db, const sstring& keyspace, lw_shared_ptr<colu
 
         values.push_back(std::move(t));
     }
-    auto compare = dynamic_cast<const set_type_impl&>(receiver->type->without_reversed())
-            .get_elements_type()->as_less_comparator();
+    data_type elements_type = dynamic_cast<const set_type_impl&>(receiver->type->without_reversed()).get_elements_type();
+    auto compare = elements_type->as_less_comparator();
 
-    auto value = ::make_shared<delayed_value>(compare, std::move(values));
+    auto value = ::make_shared<delayed_value>(compare, std::move(values), std::move(elements_type));
     if (all_terminal) {
         return value->bind(query_options::DEFAULT);
     } else {
@@ -149,7 +149,7 @@ sets::value::from_serialized(const raw_value_view& val, const set_type_impl& typ
                 elements.insert(elements.end(), managed_bytes(type.get_elements_type()->decompose(element)));
             }
         }
-        return value(std::move(elements));
+        return value(std::move(elements), type.get_elements_type());
     } catch (marshal_exception& e) {
         throw exceptions::invalid_request_exception(e.what());
     }
@@ -224,7 +224,7 @@ sets::delayed_value::bind(const query_options& options) {
         }
         buffers.insert(buffers.end(), *to_managed_bytes_opt(b));
     }
-    return ::make_shared<value>(std::move(buffers));
+    return ::make_shared<value>(std::move(buffers), _elements_type);
 }
 
 

@@ -78,22 +78,37 @@ namespace rewrite {
     struct bound_value {
         int32_t _bind_index;
         lw_shared_ptr<column_specification> _receiver;
+
+        bool operator==(const delayed_tuple& other) const {return true;}
+        bool operator<(const bound_value& other) const {return true;}
     };
 
     struct delayed_tuple {
         std::vector<term> elements;
+
+        bool operator==(const delayed_tuple& other) const {return true;}
+        bool operator<(const delayed_tuple& other) const {return true;}
     };
 
     struct delayed_list {
         std::vector<term> elements;
+
+        bool operator==(const delayed_list& other) const {return true;}
+        bool operator<(const delayed_list& other) const {return true;}
     };
 
     struct delayed_set {
-        std::vector<term> elements;
+        std::set<term> elements;
+
+        bool operator==(const delayed_set& other) const {return true;}
+        bool operator<(const delayed_set& other) const {return true;}
     };
 
     struct delayed_map {
         std::vector<std::pair<term, term>> elements;
+
+        bool operator==(const delayed_map& other) const {return true;}
+        bool operator<(const delayed_map& other) const {return true;}
     };
 
     // Function call that has bound values in arguments or requires special execution.
@@ -101,10 +116,16 @@ namespace rewrite {
     struct delayed_function {
         shared_ptr<functions::scalar_function> function;
         std::vector<term> arguments;
+
+        bool operator==(const delayed_function& other) const {return true;}
+        bool operator<(const delayed_function& other) const {return true;}
     };
 
     struct delayed_user_type {
         std::map<sstring, term> fields;
+
+        bool operator==(const delayed_user_type& other) const {return true;}
+        bool operator<(const delayed_user_type& other) const {return true;}
     };
 
     // In case of nullptr returns null_value, otherwise calls old_term->to_new_term().

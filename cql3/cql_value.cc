@@ -42,5 +42,74 @@
 #include "cql_value.hh"
 
 namespace cql3 {
-    // TODO: Implementation for cql_value.hh
+    static const abstract_type* get_type(const serialized_value& a, const serialized_value& b) {
+        const abstract_type* data_type = a.type.has_value() ? a.type->get() : nullptr;
+
+        if (b.type.has_value() && std::less{}(b.type->get(), data_type)) {
+            data_type = b.type->get();
+        }
+
+        return data_type;
+    }
+
+    // TODO: This is bad, find another way to do things when of not the same type
+    bool serialized_value::operator==(const serialized_value& other) const {
+        const abstract_type* data_type = get_type(*this, other);
+
+        if (data_type != nullptr) {
+            return data_type->equal(data, other.data);
+        } else {
+            return data < other.data;
+        }
+    }
+
+    bool serialized_value::operator<(const serialized_value& other) const {
+        const abstract_type* data_type = get_type(*this, other);
+
+        if (data_type != nullptr) {
+            return data_type->less(data, other.data);
+        } else {
+            return data < other.data;
+        }
+    }
+
+    bool tuple_value::operator==(const tuple_value& other) const {
+        return elements == other.elements;
+    }
+
+    bool tuple_value::operator<(const tuple_value& other) const {
+        return elements < other.elements;
+    }
+
+    bool list_value::operator==(const list_value& other) const {
+        return elements == other.elements;
+    }
+
+    bool list_value::operator<(const list_value& other) const {
+        return elements < other.elements;
+    }
+
+    bool set_value::operator==(const set_value& other) const {
+        return elements == other.elements;
+    }
+
+    bool set_value::operator<(const set_value& other) const {
+        return elements < other.elements;
+    }
+
+    bool map_value::operator==(const map_value& other) const {
+        return elements == other.elements;
+    }
+
+    bool map_value::operator<(const map_value& other) const {
+        return elements < other.elements;
+    }
+
+    bool user_type_value::operator==(const user_type_value& other) const {
+        return fields == other.fields;
+    }
+
+    bool user_type_value::operator<(const user_type_value& other) const {
+        return fields < other.fields;
+    }
 }
