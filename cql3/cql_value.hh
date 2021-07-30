@@ -103,7 +103,7 @@ namespace cql3 {
     };
 
     struct user_type_value {
-        std::map<sstring, cql_value> fields;
+        std::vector<cql_value> field_values;
 
         bool operator==(const user_type_value& other) const;
         bool operator<(const user_type_value& other) const;

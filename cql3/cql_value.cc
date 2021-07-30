@@ -106,10 +106,10 @@ namespace cql3 {
     }
 
     bool user_type_value::operator==(const user_type_value& other) const {
-        return fields == other.fields;
+        return field_values == other.field_values;
     }
 
     bool user_type_value::operator<(const user_type_value& other) const {
-        return fields < other.fields;
+        return field_values < other.field_values;
     }
 }

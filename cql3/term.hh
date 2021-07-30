@@ -122,7 +122,7 @@ namespace rewrite {
     };
 
     struct delayed_user_type {
-        std::map<sstring, term> fields;
+        std::vector<term> field_values;
 
         bool operator==(const delayed_user_type& other) const {return true;}
         bool operator<(const delayed_user_type& other) const {return true;}
