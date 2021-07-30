@@ -89,7 +89,18 @@ public:
         friend class lists;
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            std::vector<cql_value> new_elements;
+            new_elements.reserve(_elements.size());
+
+            for (const managed_bytes_opt& elem : _elements) {
+                if (elem.has_value()) {
+                    new_elements.emplace_back(serialized_value{to_bytes(*elem)});
+                } else {
+                    new_elements.emplace_back(null_value{});
+                }
+            }
+
+            return rewrite::term(cql_value(list_value{std::move(new_elements)}));
         };
     };
     /**
@@ -115,7 +126,14 @@ public:
         }
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            std::vector<rewrite::term> new_elements;
+            new_elements.reserve(_elements.size());
+
+            for (const ::shared_ptr<term>& elem : _elements) {
+                new_elements.emplace_back(rewrite::to_new_term(elem));
+            }
+
+            return rewrite::term(rewrite::delayed_cql_value(rewrite::delayed_list{std::move(new_elements)}));
         };
     };
 
@@ -130,7 +148,8 @@ public:
         virtual ::shared_ptr<terminal> bind(const query_options& options) override;
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            // TODO: Is the information that this bind marker is for a list IN important?
+            return rewrite::term(rewrite::delayed_cql_value(rewrite::bound_value{_bind_index, _receiver}));
         };
     };
 
