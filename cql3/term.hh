@@ -106,6 +106,10 @@ namespace rewrite {
     struct delayed_user_type {
         std::map<sstring, term> fields;
     };
+
+    // In case of nullptr returns null_value, otherwise calls old_term->to_new_term().
+    // Sometimes nulls are represented as nullptr, this function allows for easy conversions.
+    term to_new_term(const ::shared_ptr<cql3::term>& old_term);
 }
 
 class terminal;
