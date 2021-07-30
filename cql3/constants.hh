@@ -76,7 +76,15 @@ public:
         virtual sstring to_string() const override { return _bytes.to_view().with_value([] (const FragmentedView auto& v) { return to_hex(v); }); }
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            if (_bytes.is_null()) {
+                return rewrite::term(cql_value(null_value{}));
+            }
+
+            if (_bytes.is_unset_value()) {
+                return rewrite::term(cql_value(unset_value{}));
+            }
+
+            return rewrite::term(cql_value(serialized_value{cql3::raw_value(_bytes).to_bytes()}));
         };
     };
 
@@ -91,7 +99,7 @@ public:
             virtual sstring to_string() const override { return "null"; }
 
             virtual rewrite::term to_new_term() const override {
-                throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+                return rewrite::term(cql_value(cql3::null_value{}));
             };
         };
     public:
@@ -210,7 +218,7 @@ public:
         }
 
         virtual rewrite::term to_new_term() const override {
-            throw std::runtime_error(fmt::format("{}:{} - to_new_term is not implemented", __FILE__, __LINE__));
+            return rewrite::term(rewrite::delayed_cql_value(rewrite::bound_value{_bind_index, _receiver}));
         };
     };
 
