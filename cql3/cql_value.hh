@@ -39,6 +39,8 @@
  * along with Scylla.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#pragma once
+
 #include "cql3/values.hh"
 #include <variant>
 #include <vector>
