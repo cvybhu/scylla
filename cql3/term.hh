@@ -76,39 +76,39 @@ namespace rewrite {
     // A value that is only defined as a bind marker.
     // Once bound variable are given, it's converted to an actual cql_value.
     struct bound_value {
-        int32_t _bind_index;
-        lw_shared_ptr<column_specification> _receiver;
+        int32_t bind_index;
+        lw_shared_ptr<column_specification> receiver;
 
-        bool operator==(const delayed_tuple& other) const {return true;}
-        bool operator<(const bound_value& other) const {return true;}
+        bool operator==(const bound_value& other) const;
+        bool operator<(const bound_value& other) const;
     };
 
     struct delayed_tuple {
         std::vector<term> elements;
 
-        bool operator==(const delayed_tuple& other) const {return true;}
-        bool operator<(const delayed_tuple& other) const {return true;}
+        bool operator==(const delayed_tuple& other) const;
+        bool operator<(const delayed_tuple& other) const;
     };
 
     struct delayed_list {
         std::vector<term> elements;
 
-        bool operator==(const delayed_list& other) const {return true;}
-        bool operator<(const delayed_list& other) const {return true;}
+        bool operator==(const delayed_list& other) const;
+        bool operator<(const delayed_list& other) const;
     };
 
     struct delayed_set {
         std::set<term> elements;
 
-        bool operator==(const delayed_set& other) const {return true;}
-        bool operator<(const delayed_set& other) const {return true;}
+        bool operator==(const delayed_set& other) const;
+        bool operator<(const delayed_set& other) const;
     };
 
     struct delayed_map {
         std::map<term, term> elements;
 
-        bool operator==(const delayed_map& other) const {return true;}
-        bool operator<(const delayed_map& other) const {return true;}
+        bool operator==(const delayed_map& other) const;
+        bool operator<(const delayed_map& other) const;
     };
 
     // Function call that has bound values in arguments or requires special execution.
@@ -117,15 +117,15 @@ namespace rewrite {
         shared_ptr<functions::scalar_function> function;
         std::vector<term> arguments;
 
-        bool operator==(const delayed_function& other) const {return true;}
-        bool operator<(const delayed_function& other) const {return true;}
+        bool operator==(const delayed_function& other) const;
+        bool operator<(const delayed_function& other) const;
     };
 
     struct delayed_user_type {
         std::vector<term> field_values;
 
-        bool operator==(const delayed_user_type& other) const {return true;}
-        bool operator<(const delayed_user_type& other) const {return true;}
+        bool operator==(const delayed_user_type& other) const;
+        bool operator<(const delayed_user_type& other) const;
     };
 
     // In case of nullptr returns null_value, otherwise calls old_term->to_new_term().
