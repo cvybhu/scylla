@@ -193,12 +193,27 @@ namespace cql3 {
         return serialized_elements_to_raw_value(serialized_elements, sf);
     }
 
-    cql3::raw_value to_raw_value(const set_value&, cql_serialization_format) {
-        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
+    cql3::raw_value to_raw_value(const set_value& val, cql_serialization_format sf) {
+        std::vector<managed_bytes_opt> serialized_elements;
+        serialized_elements.reserve(val.elements.size());
+
+        for (const cql_value& elem : val.elements) {
+            serialized_elements.emplace_back(to_managed_bytes_opt(elem, sf));
+        }
+
+        return serialized_elements_to_raw_value(serialized_elements, sf);
     }
 
-    cql3::raw_value to_raw_value(const map_value&, cql_serialization_format) {
-        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
+    cql3::raw_value to_raw_value(const map_value& val, cql_serialization_format sf) {
+        std::vector<managed_bytes_opt> serialized_elements;
+        serialized_elements.reserve(2 * val.elements.size());
+
+        for (const auto& [key, value] : val.elements) {
+            serialized_elements.emplace_back(to_managed_bytes_opt(key, sf));
+            serialized_elements.emplace_back(to_managed_bytes_opt(value, sf));
+        }
+
+        return serialized_elements_to_raw_value(serialized_elements, sf);
     }
 
     cql3::raw_value to_raw_value(const user_type_value&, cql_serialization_format) {
