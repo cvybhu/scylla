@@ -162,10 +162,6 @@ user_types::value user_types::value::from_serialized(const raw_value_view& v, co
     });
 }
 
-cql3::raw_value user_types::value::get(const query_options&) {
-    return cql3::raw_value::make_value(tuple_type_impl::build_value_fragmented(_elements));
-}
-
 const std::vector<managed_bytes_opt>& user_types::value::get_elements() const {
     return _elements;
 }

@@ -186,27 +186,9 @@ maps::value::from_serialized(const raw_value_view& fragmented_value, const map_t
     }
 }
 
-cql3::raw_value
-maps::value::get(const query_options& options) {
-    return cql3::raw_value::make_value(get_with_protocol_version(options.get_cql_serialization_format()));
-}
-
 managed_bytes
 maps::value::get_with_protocol_version(cql_serialization_format sf) {
-    //FIXME: share code with serialize_partially_deserialized_form
-    size_t len = collection_value_len(sf) * map.size() * 2 + collection_size_len(sf);
-    for (auto&& e : map) {
-        len += e.first.size() + e.second.size();
-    }
-    managed_bytes b(managed_bytes::initialized_later(), len);
-    managed_bytes_mutable_view out(b);
-
-    write_collection_size(out, map.size(), sf);
-    for (auto&& e : map) {
-        write_collection_value(out, sf, e.first);
-        write_collection_value(out, sf, e.second);
-    }
-    return b;
+    return managed_bytes(to_raw_value(std::get<cql_value>(this->to_new_term()), sf).to_bytes());
 }
 
 bool

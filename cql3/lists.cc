@@ -149,19 +149,9 @@ lists::value::from_serialized(const raw_value_view& val, const list_type_impl& t
     }
 }
 
-cql3::raw_value
-lists::value::get(const query_options& options) {
-    return cql3::raw_value::make_value(get_with_protocol_version(options.get_cql_serialization_format()));
-}
-
 managed_bytes
 lists::value::get_with_protocol_version(cql_serialization_format sf) {
-    // Can't use boost::indirect_iterator, because optional is not an iterator
-    auto deref = [] (managed_bytes_opt& x) { return *x; };
-    return collection_type_impl::pack_fragmented(
-            boost::make_transform_iterator(_elements.begin(), deref),
-            boost::make_transform_iterator( _elements.end(), deref),
-            _elements.size(), sf);
+    return managed_bytes(to_raw_value(std::get<cql_value>(this->to_new_term()), sf).to_bytes());
 }
 
 bool

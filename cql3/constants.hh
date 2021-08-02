@@ -71,7 +71,6 @@ public:
     public:
         cql3::raw_value _bytes;
         value(cql3::raw_value bytes_) : _bytes(std::move(bytes_)) {}
-        virtual cql3::raw_value get(const query_options& options) override { return _bytes; }
         virtual sstring to_string() const override { return _bytes.to_view().with_value([] (const FragmentedView auto& v) { return to_hex(v); }); }
 
         virtual rewrite::term to_new_term() const override {
