@@ -111,7 +111,7 @@ namespace cql3 {
         bool operator<(const user_type_value& other) const;
     };
 
-    cql3::raw_value to_raw_value(const cql_value&);
+    cql3::raw_value to_raw_value(const cql_value&, cql_serialization_format);
 
     cql3::raw_value to_raw_value(const unset_value&, cql_serialization_format);
     cql3::raw_value to_raw_value(const null_value&, cql_serialization_format);

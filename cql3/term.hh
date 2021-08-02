@@ -269,7 +269,9 @@ public:
     virtual cql3::raw_value get(const query_options& options) = 0;
 
     virtual cql3::raw_value_view bind_and_get(const query_options& options) override {
-        return raw_value_view::make_temporary(get(options));
+        cql_value cql_val = std::get<cql_value>(this->to_new_term());
+        raw_value raw_val = to_raw_value(cql_val,  options.get_cql_serialization_format());
+        return raw_value_view::make_temporary(std::move(raw_val));
     }
 
     virtual sstring to_string() const = 0;
