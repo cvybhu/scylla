@@ -121,4 +121,6 @@ namespace cql3 {
     cql3::raw_value to_raw_value(const set_value&);
     cql3::raw_value to_raw_value(const map_value&);
     cql3::raw_value to_raw_value(const user_type_value&);
+
+    managed_bytes_opt to_managed_bytes_opt(const cql_value&);
 }
