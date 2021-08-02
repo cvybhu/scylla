@@ -126,8 +126,8 @@ namespace cql3 {
         return cql3::raw_value::make_null();
     }
 
-    cql3::raw_value to_raw_value(const serialized_value&) {
-        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
+    cql3::raw_value to_raw_value(const serialized_value& val) {
+        return cql3::raw_value::make_value(val.data);
     }
 
     cql3::raw_value to_raw_value(const tuple_value&) {
