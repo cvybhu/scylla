@@ -41,6 +41,7 @@
 
 #include "cql_value.hh"
 #include "utils/overloaded_functor.hh"
+#include "types.hh"
 
 namespace cql3 {
     static const abstract_type* get_type(const serialized_value& a, const serialized_value& b) {
@@ -114,28 +115,28 @@ namespace cql3 {
         return field_values < other.field_values;
     }
 
-    cql3::raw_value to_raw_value(const cql_value& cql_val) {
-        return std::visit(overloaded_functor{[](const auto& val) {return to_raw_value(val);}}, cql_val);
+    cql3::raw_value to_raw_value(const cql_value& cql_val, cql_serialization_format sf) {
+        return std::visit(overloaded_functor{[&](const auto& val) {return to_raw_value(val, sf);}}, cql_val);
     }
 
-    cql3::raw_value to_raw_value(const unset_value&) {
+    cql3::raw_value to_raw_value(const unset_value&, cql_serialization_format) {
         return cql3::raw_value::make_unset_value();
     }
 
-    cql3::raw_value to_raw_value(const null_value&) {
+    cql3::raw_value to_raw_value(const null_value&, cql_serialization_format) {
         return cql3::raw_value::make_null();
     }
 
-    cql3::raw_value to_raw_value(const serialized_value& val) {
+    cql3::raw_value to_raw_value(const serialized_value& val, cql_serialization_format) {
         return cql3::raw_value::make_value(val.data);
     }
 
-    cql3::raw_value to_raw_value(const tuple_value& val) {
+    cql3::raw_value to_raw_value(const tuple_value& val, cql_serialization_format sf) {
         std::vector<managed_bytes_opt> serialized_elements;
         serialized_elements.reserve(val.elements.size());
 
         for (const cql_value& elem : val.elements) {
-            serialized_elements.emplace_back(to_managed_bytes_opt(elem));
+            serialized_elements.emplace_back(to_managed_bytes_opt(elem, sf));
         }
 
         size_t size = 0;
@@ -156,27 +157,59 @@ namespace cql3 {
         return cql3::raw_value::make_value(ret);
     }
 
-    cql3::raw_value to_raw_value(const list_value&) {
+    static cql3::raw_value serialized_elements_to_raw_value(const std::vector<managed_bytes_opt>& elements, cql_serialization_format sf) {
+        const size_t collection_len_size = collection_size_len(sf);
+        const size_t element_len_size = collection_value_len(sf);
+
+        sf.ensure_collection_len_fits(elements.size());
+        size_t len = collection_len_size;
+        for (const managed_bytes_opt& elem : elements) {
+            if (!elem.has_value()) {
+                throw std::runtime_error("NULL IN COLLECTION! THIS SHOULD NOT HAPPEN!");
+            }
+            sf.ensure_collection_element_len_fits(elem->size());
+            len += element_len_size + elem->size();
+        }
+
+        managed_bytes out(managed_bytes::initialized_later(), len);
+        managed_bytes_mutable_view v(out);
+        write_collection_size(v, elements.size(), sf);
+
+        for (const managed_bytes_opt& elem : elements) {
+            write_collection_value(v, sf, managed_bytes_view(*elem));
+        }
+
+        return cql3::raw_value::make_value(out);
+    }
+
+    cql3::raw_value to_raw_value(const list_value& val, cql_serialization_format sf) {
+        std::vector<managed_bytes_opt> serialized_elements;
+        serialized_elements.reserve(val.elements.size());
+
+        for (const cql_value& elem : val.elements) {
+            serialized_elements.emplace_back(to_managed_bytes_opt(elem, sf));
+        }
+
+        return serialized_elements_to_raw_value(serialized_elements, sf);
+    }
+
+    cql3::raw_value to_raw_value(const set_value&, cql_serialization_format) {
         throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
     }
 
-    cql3::raw_value to_raw_value(const set_value&) {
+    cql3::raw_value to_raw_value(const map_value&, cql_serialization_format) {
         throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
     }
 
-    cql3::raw_value to_raw_value(const map_value&) {
+    cql3::raw_value to_raw_value(const user_type_value&, cql_serialization_format) {
         throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
     }
 
-    cql3::raw_value to_raw_value(const user_type_value&) {
-        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
-    }
-
-    managed_bytes_opt to_managed_bytes_opt(const cql_value& val) {
+    managed_bytes_opt to_managed_bytes_opt(const cql_value& val, cql_serialization_format sf) {
         if (val == cql_value(null_value{}) || val == cql_value(unset_value{})) {
             return std::nullopt;
         }
 
-        return std::make_optional(managed_bytes(to_raw_value(val).to_bytes()));
+        return std::make_optional(managed_bytes(to_raw_value(val, sf).to_bytes()));
     }
 }

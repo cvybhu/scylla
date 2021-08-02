@@ -113,14 +113,14 @@ namespace cql3 {
 
     cql3::raw_value to_raw_value(const cql_value&);
 
-    cql3::raw_value to_raw_value(const unset_value&);
-    cql3::raw_value to_raw_value(const null_value&);
-    cql3::raw_value to_raw_value(const serialized_value&);
-    cql3::raw_value to_raw_value(const tuple_value&);
-    cql3::raw_value to_raw_value(const list_value&);
-    cql3::raw_value to_raw_value(const set_value&);
-    cql3::raw_value to_raw_value(const map_value&);
-    cql3::raw_value to_raw_value(const user_type_value&);
+    cql3::raw_value to_raw_value(const unset_value&, cql_serialization_format);
+    cql3::raw_value to_raw_value(const null_value&, cql_serialization_format);
+    cql3::raw_value to_raw_value(const serialized_value&, cql_serialization_format);
+    cql3::raw_value to_raw_value(const tuple_value&, cql_serialization_format);
+    cql3::raw_value to_raw_value(const list_value&, cql_serialization_format);
+    cql3::raw_value to_raw_value(const set_value&, cql_serialization_format);
+    cql3::raw_value to_raw_value(const map_value&, cql_serialization_format);
+    cql3::raw_value to_raw_value(const user_type_value&, cql_serialization_format);
 
-    managed_bytes_opt to_managed_bytes_opt(const cql_value&);
+    managed_bytes_opt to_managed_bytes_opt(const cql_value&, cql_serialization_format);
 }

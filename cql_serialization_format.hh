@@ -50,4 +50,27 @@ public:
     bool collection_format_unchanged(cql_serialization_format other = cql_serialization_format::latest()) const {
         return using_32_bits_for_collections() == other.using_32_bits_for_collections();
     }
+
+    void ensure_collection_len_fits(size_t collection_len) {
+        size_t max_len = using_32_bits_for_collections() ?
+                            std::numeric_limits<uint32_t>::max()
+                            : std::numeric_limits<uint16_t>::max();
+    
+        if (collection_len > max_len) {
+            throw std::runtime_error(
+                fmt::format("CQL Serialization error: Collection len does not fit: {} > {}", collection_len, max_len));
+        }
+    }
+
+    void ensure_collection_element_len_fits(size_t collection_element_len) {
+        size_t max_len = using_32_bits_for_collections() ?
+                            std::numeric_limits<uint32_t>::max()
+                            : std::numeric_limits<uint16_t>::max();
+    
+        if (collection_element_len > max_len) {
+            throw std::runtime_error(
+                fmt::format("CQL Serialization error: Collection element len does not fit: {} > {}", 
+                            collection_element_len, max_len));
+        }
+    }
 };
