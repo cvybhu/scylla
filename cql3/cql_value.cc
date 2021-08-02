@@ -40,6 +40,7 @@
  */
 
 #include "cql_value.hh"
+#include "utils/overloaded_functor.hh"
 
 namespace cql3 {
     static const abstract_type* get_type(const serialized_value& a, const serialized_value& b) {
@@ -111,5 +112,41 @@ namespace cql3 {
 
     bool user_type_value::operator<(const user_type_value& other) const {
         return field_values < other.field_values;
+    }
+
+    cql3::raw_value to_raw_value(const cql_value& cql_val) {
+        return std::visit(overloaded_functor{[](const auto& val) {return to_raw_value(val);}}, cql_val);
+    }
+
+    cql3::raw_value to_raw_value(const unset_value&) {
+        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
+    }
+
+    cql3::raw_value to_raw_value(const null_value&) {
+        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
+    }
+
+    cql3::raw_value to_raw_value(const serialized_value&) {
+        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
+    }
+
+    cql3::raw_value to_raw_value(const tuple_value&) {
+        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
+    }
+
+    cql3::raw_value to_raw_value(const list_value&) {
+        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
+    }
+
+    cql3::raw_value to_raw_value(const set_value&) {
+        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
+    }
+
+    cql3::raw_value to_raw_value(const map_value&) {
+        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
+    }
+
+    cql3::raw_value to_raw_value(const user_type_value&) {
+        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
     }
 }
