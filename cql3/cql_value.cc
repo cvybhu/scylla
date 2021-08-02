@@ -157,11 +157,13 @@ namespace cql3 {
         return cql3::raw_value::make_value(ret);
     }
 
-    static cql3::raw_value serialized_elements_to_raw_value(const std::vector<managed_bytes_opt>& elements, cql_serialization_format sf) {
+    static cql3::raw_value serialized_elements_to_raw_value(const std::vector<managed_bytes_opt>& elements, cql_serialization_format sf, bool is_map = false) {
         const size_t collection_len_size = collection_size_len(sf);
         const size_t element_len_size = collection_value_len(sf);
 
-        sf.ensure_collection_len_fits(elements.size());
+        size_t collection_len = is_map ? elements.size() / 2 : elements.size();
+
+        sf.ensure_collection_len_fits(collection_len);
         size_t len = collection_len_size;
         for (const managed_bytes_opt& elem : elements) {
             if (!elem.has_value()) {
@@ -173,7 +175,7 @@ namespace cql3 {
 
         managed_bytes out(managed_bytes::initialized_later(), len);
         managed_bytes_mutable_view v(out);
-        write_collection_size(v, elements.size(), sf);
+        write_collection_size(v, collection_len, sf);
 
         for (const managed_bytes_opt& elem : elements) {
             write_collection_value(v, sf, managed_bytes_view(*elem));
@@ -213,7 +215,7 @@ namespace cql3 {
             serialized_elements.emplace_back(to_managed_bytes_opt(value, sf));
         }
 
-        return serialized_elements_to_raw_value(serialized_elements, sf);
+        return serialized_elements_to_raw_value(serialized_elements, sf, true);
     }
 
     cql3::raw_value to_raw_value(const user_type_value& val, cql_serialization_format sf) {
