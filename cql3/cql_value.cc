@@ -119,7 +119,7 @@ namespace cql3 {
     }
 
     cql3::raw_value to_raw_value(const unset_value&) {
-        throw std::runtime_error(fmt::format("{}:{} - Unimplemented!", __FILE__, __LINE__));
+        return cql3::raw_value::make_unset_value();
     }
 
     cql3::raw_value to_raw_value(const null_value&) {
