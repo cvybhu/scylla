@@ -75,9 +75,10 @@ public:
     class value : public multi_item_terminal, collection_terminal {
     public:
         utils::chunked_vector<managed_bytes_opt> _elements;
+        data_type _elements_type;
     public:
-        explicit value(utils::chunked_vector<managed_bytes_opt> elements)
-            : _elements(std::move(elements)) {
+        explicit value(utils::chunked_vector<managed_bytes_opt> elements, data_type elements_type)
+            : _elements(std::move(elements)), _elements_type(elements_type) {
         }
         static value from_serialized(const raw_value_view& v, const list_type_impl& type, cql_serialization_format sf);
         virtual managed_bytes get_with_protocol_version(cql_serialization_format sf) override;
@@ -93,7 +94,7 @@ public:
 
             for (const managed_bytes_opt& elem : _elements) {
                 if (elem.has_value()) {
-                    new_elements.emplace_back(serialized_value{to_bytes(*elem)});
+                    new_elements.emplace_back(serialized_value(to_bytes(*elem), _elements_type));
                 } else {
                     new_elements.emplace_back(null_value{});
                 }
@@ -113,9 +114,10 @@ public:
      */
     class delayed_value : public non_terminal {
         std::vector<shared_ptr<term>> _elements;
+        data_type _elements_type;
     public:
-        explicit delayed_value(std::vector<shared_ptr<term>> elements)
-                : _elements(std::move(elements)) {
+        explicit delayed_value(std::vector<shared_ptr<term>> elements, data_type elements_type)
+                : _elements(std::move(elements)), _elements_type(elements_type) {
         }
         virtual bool contains_bind_marker() const override;
         virtual void collect_marker_specification(variable_specifications& bound_names) const override;

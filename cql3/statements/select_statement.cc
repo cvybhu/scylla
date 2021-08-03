@@ -1181,7 +1181,7 @@ query::partition_slice indexed_table_select_statement::get_partition_slice_for_l
         const column_definition* view_cdef = _view_schema->get_column_definition(to_bytes(_index.target_column()));
         auto index_eq_restriction = ::make_shared<restrictions::single_column_restriction>(*view_cdef);
         index_eq_restriction->expression = expr::binary_operator{
-                view_cdef, expr::oper_t::EQ, ::make_shared<cql3::constants::value>(cql3::raw_value::make_value(*value))};
+                view_cdef, expr::oper_t::EQ, ::make_shared<cql3::constants::value>(cql3::raw_value::make_value(*value), view_cdef->type)};
         clustering_restrictions->merge_with(index_eq_restriction);
     }
 

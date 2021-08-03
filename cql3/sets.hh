@@ -88,7 +88,7 @@ public:
             std::set<cql_value> new_elements;
 
             for (const managed_bytes& elem : _elements) {
-                new_elements.emplace(cql_value(serialized_value{to_bytes(elem), _elements_type}));
+                new_elements.emplace(cql_value(serialized_value(to_bytes(elem), _elements_type)));
             }
 
             return rewrite::term(cql_value(set_value{std::move(new_elements)}));

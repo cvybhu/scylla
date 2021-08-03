@@ -92,8 +92,8 @@ public:
             std::map<cql_value, cql_value> new_map;
 
             for (const auto& [key, value] : map) {
-                cql_value key_value = cql_value(serialized_value{to_bytes(key), _keys_type});
-                cql_value value_value = cql_value(serialized_value{to_bytes(value), _values_type});
+                cql_value key_value = cql_value(serialized_value(to_bytes(key), _keys_type));
+                cql_value value_value = cql_value(serialized_value(to_bytes(value), _values_type));
                 
                 new_map.emplace(std::move(key_value), std::move(value_value));
             }

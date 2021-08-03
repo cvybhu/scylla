@@ -95,7 +95,12 @@ tuples::in_value::from_serialized(const raw_value_view& value_view, const list_t
             // FIXME: Avoid useless copies.
             elements.emplace_back(ttype->split_fragmented(single_fragmented_view(ttype->decompose(e))));
         }
-        return tuples::in_value(elements);
+
+        if (ttype.get() == nullptr) {
+            std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+            throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+        }
+        return tuples::in_value(elements, ttype->all_types());
     } catch (marshal_exception& e) {
         throw exceptions::invalid_request_exception(e.what());
     }

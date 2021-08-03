@@ -70,7 +70,14 @@ public:
     class value : public terminal {
     public:
         cql3::raw_value _bytes;
-        value(cql3::raw_value bytes_) : _bytes(std::move(bytes_)) {}
+        data_type _value_type;
+
+        value(cql3::raw_value bytes_, data_type value_type_) : _bytes(std::move(bytes_)), _value_type(value_type_) {
+            if (_value_type.get() == nullptr) {
+                std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+                throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+            }
+        }
         virtual sstring to_string() const override { return _bytes.to_view().with_value([] (const FragmentedView auto& v) { return to_hex(v); }); }
 
         virtual rewrite::term to_new_term() const override {
@@ -82,7 +89,7 @@ public:
                 return rewrite::term(cql_value(unset_value{}));
             }
 
-            return rewrite::term(cql_value(serialized_value{cql3::raw_value(_bytes).to_bytes()}));
+            return rewrite::term(cql_value(serialized_value(cql3::raw_value(_bytes).to_bytes(), _value_type)));
         };
     };
 
@@ -92,7 +99,7 @@ public:
     private:
         class null_value final : public value {
         public:
-            null_value() : value(cql3::raw_value::make_null()) {}
+            null_value() : value(cql3::raw_value::make_null(), empty_type) {}
             virtual ::shared_ptr<terminal> bind(const query_options& options) override { return {}; }
             virtual sstring to_string() const override { return "null"; }
 
@@ -132,7 +139,7 @@ public:
         literal(type type_, sstring text)
             : _type{type_}
             , _text{text}
-        { }
+        {}
 
         static ::shared_ptr<literal> string(sstring text) {
             // This is a workaround for antlr3 not distinguishing between
@@ -212,7 +219,7 @@ public:
             if (bytes.is_unset_value()) {
                 return UNSET_VALUE;
             }
-            return ::make_shared<constants::value>(cql3::raw_value::make_value(bytes));
+            return ::make_shared<constants::value>(cql3::raw_value::make_value(bytes), _receiver->type);
         }
 
         virtual rewrite::term to_new_term() const override {

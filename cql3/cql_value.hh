@@ -59,18 +59,28 @@ namespace cql3 {
     // CQL value represents a single data value occuring in CQL
     using cql_value = std::variant<unset_value,
                                    null_value,
-                                   serialized_value,
                                    tuple_value,
                                    list_value,
                                    set_value,
                                    map_value,
-                                   user_type_value>;
+                                   user_type_value,
+                                   serialized_value>;
 
     // A value that has been already serialized to bytes
     // Not null or unset
     struct serialized_value {
+        serialized_value(bytes data_, data_type type_):
+            data(std::move(data_)),
+            type(std::move(type_))
+            {
+                if (type.get() == nullptr) {
+                    std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+                    throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+                }
+            }
+
         bytes data;
-        std::optional<data_type> type;
+        data_type type;
 
         bool operator==(const serialized_value& other) const;
         bool operator<(const serialized_value& other) const;

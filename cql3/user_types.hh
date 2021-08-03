@@ -74,9 +74,9 @@ public:
 
     class value : public multi_item_terminal {
         std::vector<managed_bytes_opt> _elements;
+        std::vector<data_type> _element_types;
     public:
-        explicit value(std::vector<managed_bytes_opt>);
-        explicit value(std::vector<managed_bytes_view_opt>);
+        explicit value(std::vector<managed_bytes_opt>, std::vector<data_type> element_types);
 
         static value from_serialized(const raw_value_view&, const user_type_impl&);
 
@@ -88,9 +88,9 @@ public:
             std::vector<cql_value> new_elements;
             new_elements.reserve(_elements.size());
 
-            for (const managed_bytes_opt& elem : _elements) {
-                if (elem.has_value()) {
-                    new_elements.emplace_back(serialized_value{to_bytes(*elem)});
+            for (size_t i = 0; i < _elements.size(); i++) {
+                if (_elements[i].has_value()) {
+                    new_elements.emplace_back(serialized_value(to_bytes(*_elements[i]), _element_types[i]));
                 } else {
                     new_elements.emplace_back(null_value{});
                 }

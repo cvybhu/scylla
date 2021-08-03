@@ -330,10 +330,15 @@ public:
         , _values(std::move(value))
     {
         using namespace expr;
+        std::vector<data_type> column_types;
+        for (const column_definition* cdef : defs) {
+            column_types.push_back(cdef->type);
+        }
+
         expression = binary_operator{
             column_value_tuple(_column_defs),
             oper_t::IN,
-            ::make_shared<lists::delayed_value>(_values)};
+            ::make_shared<lists::delayed_value>(_values, tuple_type_impl::get_instance(column_types))};
     }
 
 protected:
@@ -564,7 +569,7 @@ private:
      */
     ::shared_ptr<restriction> make_single_column_restriction(std::optional<cql3::statements::bound> bound, bool inclusive,
                                                              std::size_t column_pos, const managed_bytes_opt& value) const {
-        ::shared_ptr<cql3::term> term = ::make_shared<cql3::constants::value>(cql3::raw_value::make_value(value));
+        ::shared_ptr<cql3::term> term = ::make_shared<cql3::constants::value>(cql3::raw_value::make_value(value), _column_defs[column_pos]->type);
         using namespace expr;
         if (!bound){
             auto r = ::make_shared<cql3::restrictions::single_column_restriction>(*_column_defs[column_pos]);
@@ -645,7 +650,12 @@ private:
         // this is either a simple equality or a never fulfilled restriction
         if (!first_neq_component && start_inclusive && end_inclusive) {
             // This is a simple equality case
-            shared_ptr<cql3::term> term = ::make_shared<cql3::tuples::value>(start_components);
+            std::vector<data_type> term_types;
+            for (const column_definition* cdef : _column_defs) {
+                term_types.push_back(cdef->type);
+            }
+
+            shared_ptr<cql3::term> term = ::make_shared<cql3::tuples::value>(start_components, std::move(term_types));
             ret.emplace_back(::make_shared<cql3::restrictions::multi_column_restriction::EQ>(_schema, _column_defs, term));
             return ret;
         } else if (!first_neq_component) {

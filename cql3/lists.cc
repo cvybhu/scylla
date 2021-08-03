@@ -77,7 +77,7 @@ lists::literal::prepare(database& db, const sstring& keyspace, lw_shared_ptr<col
         }
         values.push_back(std::move(t));
     }
-    delayed_value value(values);
+    delayed_value value(values, receiver->type);
     if (all_terminal) {
         return value.bind(query_options::DEFAULT);
     } else {
@@ -143,7 +143,7 @@ lists::value::from_serialized(const raw_value_view& val, const list_type_impl& t
                 elements.push_back(element.is_null() ? managed_bytes_opt() : managed_bytes_opt(type.get_elements_type()->decompose(element)));
             }
         }
-        return value(std::move(elements));
+        return value(std::move(elements), type.get_elements_type());
     } catch (marshal_exception& e) {
         throw exceptions::invalid_request_exception(e.what());
     }
@@ -216,7 +216,7 @@ lists::delayed_value::bind(const query_options& options) {
 
         buffers.push_back(bo.with_value([] (const FragmentedView auto& v) { return managed_bytes(v); }));
     }
-    return ::make_shared<value>(buffers);
+    return ::make_shared<value>(buffers, _elements_type);
 }
 
 ::shared_ptr<terminal>

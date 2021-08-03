@@ -146,8 +146,18 @@ sstring user_types::literal::to_string() const {
     return format("{{{}}}", ::join(", ", _entries | boost::adaptors::transformed(kv_to_str)));
 }
 
-user_types::value::value(std::vector<managed_bytes_opt> elements)
-        : _elements(std::move(elements)) {
+user_types::value::value(std::vector<managed_bytes_opt> elements, std::vector<data_type> element_types)
+        : _elements(std::move(elements)), _element_types(element_types) {
+    if (elements.size() != element_types.size()) {
+        throw std::runtime_error(fmt::format("user_types size mismatch: {} =/= {}", elements.size(), element_types.size()));
+    }
+
+    for (const data_type& e : element_types) {
+        if (e.get() == nullptr) {
+            std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+            throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+        }
+    }
 }
 
 user_types::value user_types::value::from_serialized(const raw_value_view& v, const user_type_impl& type) {
@@ -158,7 +168,7 @@ user_types::value user_types::value::from_serialized(const raw_value_view& v, co
                     format("User Defined Type value contained too many fields (expected {}, got {})", type.size(), elements.size()));
         }
 
-        return value(std::move(elements));
+        return value(std::move(elements), type.field_types());
     });
 }
 
@@ -176,6 +186,10 @@ sstring user_types::value::to_string() const {
 
 user_types::delayed_value::delayed_value(user_type type, std::vector<shared_ptr<term>> values)
         : _type(std::move(type)), _values(std::move(values)) {
+    if (_type.get() == nullptr) {
+        std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+        throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+    }
 }
 bool user_types::delayed_value::contains_bind_marker() const {
     return boost::algorithm::any_of(_values, std::mem_fn(&term::contains_bind_marker));
@@ -215,7 +229,11 @@ std::vector<managed_bytes_opt> user_types::delayed_value::bind_internal(const qu
 }
 
 shared_ptr<terminal> user_types::delayed_value::bind(const query_options& options) {
-    return ::make_shared<user_types::value>(bind_internal(options));
+    if (_type.get() == nullptr) {
+        std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+        throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+    } 
+    return ::make_shared<user_types::value>(bind_internal(options), _type->field_types());
 }
 
 cql3::raw_value_view user_types::delayed_value::bind_and_get(const query_options& options) {

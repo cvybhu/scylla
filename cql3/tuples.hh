@@ -111,13 +111,22 @@ public:
     class value : public multi_item_terminal {
     public:
         std::vector<managed_bytes_opt> _elements;
+        std::vector<data_type> _elements_types;
     public:
-        value(std::vector<managed_bytes_opt> elements)
-                : _elements(std::move(elements)) {
+        value(std::vector<managed_bytes_opt> elements, std::vector<data_type> elements_types)
+                : _elements(std::move(elements)), _elements_types(std::move(elements_types)) {
+            
+            for (auto&& e : _elements_types) {
+
+                if (e.get() == nullptr) {
+                    std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+                    throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+                }
+            }
         }
         static value from_serialized(const raw_value_view& buffer, const tuple_type_impl& type) {
           return buffer.with_value([&] (const FragmentedView auto& view) {
-              return value(type.split_fragmented(view));
+              return value(type.split_fragmented(view), type.all_types());
           });
         }
         virtual cql3::raw_value get(const query_options& options) override {
@@ -141,14 +150,13 @@ public:
             std::vector<cql_value> new_elements;
             new_elements.reserve(_elements.size());
 
-            for (const managed_bytes_opt& elem : _elements) {
-                if (elem.has_value()) {
-                    new_elements.emplace_back(serialized_value{to_bytes(*elem)});
+            for (size_t i = 0; i < _elements.size(); i++) {
+                if (_elements[i].has_value()) {
+                    new_elements.emplace_back(serialized_value(to_bytes(*_elements[i]), _elements_types[i]));
                 } else {
                     new_elements.emplace_back(null_value{});
                 }
             }
-
             return rewrite::term(cql_value(tuple_value{new_elements}));
         };
     };
@@ -162,6 +170,10 @@ public:
     public:
         delayed_value(tuple_type type, std::vector<shared_ptr<term>> elements)
                 : _type(std::move(type)), _elements(std::move(elements)) {
+                if (_type.get() == nullptr) {
+                    std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+                    throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+                }
         }
 
         virtual bool contains_bind_marker() const override {
@@ -200,7 +212,7 @@ public:
 
     public:
         virtual shared_ptr<terminal> bind(const query_options& options) override {
-            return ::make_shared<value>(bind_internal(options));
+            return ::make_shared<value>(bind_internal(options), _type->all_types());
         }
 
         virtual rewrite::term to_new_term() const override {
@@ -222,8 +234,16 @@ public:
     class in_value : public terminal {
     private:
         utils::chunked_vector<std::vector<managed_bytes_opt>> _elements;
+        std::vector<data_type> _elements_types;
     public:
-        in_value(utils::chunked_vector<std::vector<managed_bytes_opt>> items) : _elements(std::move(items)) { }
+        in_value(utils::chunked_vector<std::vector<managed_bytes_opt>> items, std::vector<data_type> elements_types) : _elements(std::move(items)), _elements_types(elements_types) { 
+            for (auto&& e : _elements_types) {
+                if (e.get() == nullptr) {
+                    std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+                    throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+                }
+            }
+        }
 
         static in_value from_serialized(const raw_value_view& value_view, const list_type_impl& type, const query_options& options);
 
@@ -245,13 +265,14 @@ public:
             std::vector<cql_value> new_elements;
             new_elements.reserve(_elements.size());
 
-            for (const std::vector<managed_bytes_opt>& elem : _elements) {
+            for (size_t i = 0; i < _elements.size(); i++) {
+            //for (const std::vector<managed_bytes_opt>& elem : _elements) {
                 std::vector<cql_value> new_tuple;
-                new_tuple.reserve(elem.size());
+                new_tuple.reserve(_elements[i].size());
 
-                for (const managed_bytes_opt& val : elem) {
-                    if (val.has_value()) {
-                        new_tuple.emplace_back(serialized_value{to_bytes(*val)});
+                for (size_t j = 0; j < _elements[i].size(); j++) {
+                    if (_elements[i][j].has_value()) {
+                        new_tuple.emplace_back(serialized_value(to_bytes(*_elements[i][j]), _elements_types[j]));
                     } else {
                         new_tuple.emplace_back(null_value{});
                     }

@@ -44,7 +44,7 @@
 
 namespace cql3 {
 
-thread_local const ::shared_ptr<constants::value> constants::UNSET_VALUE = ::make_shared<constants::value>(cql3::raw_value::make_unset_value());
+thread_local const ::shared_ptr<constants::value> constants::UNSET_VALUE = ::make_shared<constants::value>(cql3::raw_value::make_unset_value(), empty_type);
 thread_local const ::shared_ptr<term::raw> constants::NULL_LITERAL = ::make_shared<constants::null_literal>();
 thread_local const ::shared_ptr<terminal> constants::null_literal::NULL_VALUE = ::make_shared<constants::null_literal::null_value>();
 
@@ -161,7 +161,7 @@ constants::literal::prepare(database& db, const sstring& keyspace, lw_shared_ptr
         throw exceptions::invalid_request_exception(format("Invalid {} constant ({}) for \"{}\" of type {}",
             _type, _text, *receiver->name, receiver->type->as_cql3_type().to_string()));
     }
-    return ::make_shared<value>(cql3::raw_value::make_value(parsed_value(receiver->type)));
+    return ::make_shared<value>(cql3::raw_value::make_value(parsed_value(receiver->type)), receiver->type);
 }
 
 void constants::deleter::execute(mutation& m, const clustering_key_prefix& prefix, const update_parameters& params) {

@@ -45,10 +45,10 @@
 
 namespace cql3 {
     static const abstract_type* get_type(const serialized_value& a, const serialized_value& b) {
-        const abstract_type* data_type = a.type.has_value() ? a.type->get() : nullptr;
+        const abstract_type* data_type = a.type.get();
 
-        if (b.type.has_value() && std::less{}(b.type->get(), data_type)) {
-            data_type = b.type->get();
+        if (b.type.get() != nullptr && std::less{}(b.type.get(), data_type)) {
+            data_type = b.type.get();
         }
 
         return data_type;
