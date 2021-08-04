@@ -39,6 +39,7 @@
 
 #pragma once
 
+#include <experimental/source_location>
 #include "term.hh"
 #include "abstract_marker.hh"
 #include "types/tuple.hh"
@@ -113,20 +114,30 @@ public:
         std::vector<managed_bytes_opt> _elements;
         std::vector<data_type> _elements_types;
     public:
-        value(std::vector<managed_bytes_opt> elements, std::vector<data_type> elements_types)
+        value(std::vector<managed_bytes_opt> elements, std::vector<data_type> elements_types, std::experimental::source_location loc = std::experimental::source_location::current())
                 : _elements(std::move(elements)), _elements_types(std::move(elements_types)) {
-            
-            for (auto&& e : _elements_types) {
+                
+            if (_elements.size() > _elements_types.size()) {
+                throw std::runtime_error(fmt::format("Tuple types size mismatch: elements: {} > types: {} {}:{} loc: {}:{}", _elements.size(), _elements_types.size(), __FILE__, __LINE__, loc.file_name(), loc.line()));
+            }
 
+            for (auto&& e : _elements_types) {
                 if (e.get() == nullptr) {
                     std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
                     throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
                 }
             }
         }
-        static value from_serialized(const raw_value_view& buffer, const tuple_type_impl& type) {
+        static value from_serialized(const raw_value_view& buffer, const tuple_type_impl& type, const std::experimental::source_location loc = 
+               std::experimental::source_location::current()) {
+        
           return buffer.with_value([&] (const FragmentedView auto& view) {
-              return value(type.split_fragmented(view), type.all_types());
+              auto elems = type.split_fragmented(view);
+              auto types = type.all_types();
+              if (elems.size() != types.size()) {
+                throw std::runtime_error(fmt::format("tuples::value::from_serialized size mismatch! {} =/= {} {}:{}", elems.size(), types.size(), loc.file_name(), loc.line()));
+              }
+              return value(std::move(elems), std::move(types));
           });
         }
         virtual cql3::raw_value get(const query_options& options) override {
@@ -174,6 +185,10 @@ public:
                     std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
                     throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
                 }
+
+            if (_elements.size() > _type->all_types().size()) {
+                throw std::runtime_error(fmt::format("delayed tuple type size mismatch: elements: {} > types: {} {}:{}", _elements.size(), _type->all_types().size(), __FILE__, __LINE__));
+            }
         }
 
         virtual bool contains_bind_marker() const override {
@@ -212,7 +227,14 @@ public:
 
     public:
         virtual shared_ptr<terminal> bind(const query_options& options) override {
-            return ::make_shared<value>(bind_internal(options), _type->all_types());
+            auto elems = bind_internal(options);
+            auto types = _type->all_types();
+
+            if (elems.size() > types.size()) {
+                throw std::runtime_error(fmt::format("tuple Size mismatch!", __FILE__, __LINE__));
+            }
+
+            return ::make_shared<value>(elems, types);
         }
 
         virtual rewrite::term to_new_term() const override {
@@ -234,10 +256,13 @@ public:
     class in_value : public terminal {
     private:
         utils::chunked_vector<std::vector<managed_bytes_opt>> _elements;
-        std::vector<data_type> _elements_types;
+        std::vector<data_type> _element_tuple_types;
     public:
-        in_value(utils::chunked_vector<std::vector<managed_bytes_opt>> items, std::vector<data_type> elements_types) : _elements(std::move(items)), _elements_types(elements_types) { 
-            for (auto&& e : _elements_types) {
+        in_value(utils::chunked_vector<std::vector<managed_bytes_opt>> items, std::vector<data_type> element_tuple_types) : _elements(std::move(items)), _element_tuple_types(std::move(element_tuple_types)) { 
+            if (!_elements.empty() && _elements[0].size() != _element_tuple_types.size()) {
+                throw std::runtime_error(fmt::format("in_value tuple size mismatch: elemets: {} =/= types: {} {}:{}", _elements[0].size(), _element_tuple_types.size(), __FILE__, __LINE__));
+            }
+            for (auto&& e : element_tuple_types) {
                 if (e.get() == nullptr) {
                     std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
                     throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
@@ -272,7 +297,7 @@ public:
 
                 for (size_t j = 0; j < _elements[i].size(); j++) {
                     if (_elements[i][j].has_value()) {
-                        new_tuple.emplace_back(serialized_value(to_bytes(*_elements[i][j]), _elements_types[j]));
+                        new_tuple.emplace_back(serialized_value(to_bytes(*_elements[i][j]), _element_tuple_types[j]));
                     } else {
                         new_tuple.emplace_back(null_value{});
                     }

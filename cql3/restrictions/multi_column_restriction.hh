@@ -655,6 +655,10 @@ private:
                 term_types.push_back(cdef->type);
             }
 
+            if (term_types.size() != start_components.size()) {
+                throw std::runtime_error("TERM_TYPES START_COMPONENTS MISMATCH NULL");
+            }
+
             shared_ptr<cql3::term> term = ::make_shared<cql3::tuples::value>(start_components, std::move(term_types));
             ret.emplace_back(::make_shared<cql3::restrictions::multi_column_restriction::EQ>(_schema, _column_defs, term));
             return ret;

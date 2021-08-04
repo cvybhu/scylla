@@ -82,6 +82,15 @@ public:
 
         value(std::map<managed_bytes, managed_bytes, serialized_compare> map, data_type keys_type, data_type values_type)
             : map(std::move(map)), _keys_type(std::move(keys_type)), _values_type(std::move(values_type)) {
+            if (_keys_type.get() == nullptr) {
+                std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+                throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+            }
+
+            if (_values_type.get() == nullptr) {
+                std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+                throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+            }
         }
         static value from_serialized(const raw_value_view& value, const map_type_impl& type, cql_serialization_format sf);
         virtual managed_bytes get_with_protocol_version(cql_serialization_format sf);

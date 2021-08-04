@@ -79,6 +79,10 @@ public:
     public:
         explicit value(utils::chunked_vector<managed_bytes_opt> elements, data_type elements_type)
             : _elements(std::move(elements)), _elements_type(elements_type) {
+            if (_elements_type.get() == nullptr) {
+                std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+                throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+            }
         }
         static value from_serialized(const raw_value_view& v, const list_type_impl& type, cql_serialization_format sf);
         virtual managed_bytes get_with_protocol_version(cql_serialization_format sf) override;
@@ -118,6 +122,10 @@ public:
     public:
         explicit delayed_value(std::vector<shared_ptr<term>> elements, data_type elements_type)
                 : _elements(std::move(elements)), _elements_type(elements_type) {
+            if (_elements_type.get() == nullptr) {
+                std::cout << fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__) << std::endl;
+                throw std::runtime_error(fmt::format("TYPE IS NULLPTR: {}:{}", __FILE__, __LINE__));
+            }
         }
         virtual bool contains_bind_marker() const override;
         virtual void collect_marker_specification(variable_specifications& bound_names) const override;
