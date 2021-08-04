@@ -148,8 +148,8 @@ sstring user_types::literal::to_string() const {
 
 user_types::value::value(std::vector<managed_bytes_opt> elements, std::vector<data_type> element_types)
         : _elements(std::move(elements)), _element_types(element_types) {
-    if (_elements.size() != _element_types.size()) {
-        throw std::runtime_error(fmt::format("user_types size mismatch: elements: {} =/= types: {} {}:{}", _elements.size(), _element_types.size(), __FILE__, __LINE__));
+    if (_elements.size() > _element_types.size()) {
+        throw std::runtime_error(fmt::format("user_types size mismatch: elements: {} > types: {} {}:{}", _elements.size(), _element_types.size(), __FILE__, __LINE__));
     }
 
     for (const data_type& e : element_types) {
