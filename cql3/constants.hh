@@ -70,37 +70,32 @@ public:
     class value : public terminal {
     public:
         cql3::raw_value _bytes;
-        value(cql3::raw_value bytes_) : _bytes(std::move(bytes_)) {}
+        data_type _type;
+        value(cql3::raw_value bytes_, data_type type_) : _bytes(std::move(bytes_)), _type(std::move(type_)) {}
         virtual cql3::raw_value get(const query_options& options) override { return _bytes; }
         virtual cql3::raw_value_view bind_and_get(const query_options& options) override { return _bytes.to_view(); }
         virtual sstring to_string() const override { return _bytes.to_view().with_value([] (const FragmentedView auto& v) { return to_hex(v); }); }
 
-        virtual ordered_cql_value to_ordered_cql_value() const override {
-            throw std::runtime_error(fmt::format("terminal::to_cql_value not implemented! {}:{}", __FILE__, __LINE__));
-        }
+        virtual ordered_cql_value to_ordered_cql_value() const override;
     };
 
     static thread_local const ::shared_ptr<value> UNSET_VALUE;
 
     class null_literal final : public term::raw {
-    private:
+    public:
         class null_value final : public value {
         public:
-            null_value() : value(cql3::raw_value::make_null()) {}
-            virtual ::shared_ptr<terminal> bind(const query_options& options) override { return {}; }
+            null_value(data_type type) : value(cql3::raw_value::make_null(), std::move(type)) {}
             virtual sstring to_string() const override { return "null"; }
 
-            virtual ordered_cql_value to_ordered_cql_value() const override {
-                throw std::runtime_error(fmt::format("terminal::to_cql_value not implemented! {}:{}", __FILE__, __LINE__));
-            }
+            virtual ordered_cql_value to_ordered_cql_value() const override;
         };
-    public:
-        static thread_local const ::shared_ptr<terminal> NULL_VALUE;
+    
         virtual ::shared_ptr<term> prepare(database& db, const sstring& keyspace, lw_shared_ptr<column_specification> receiver) const override {
             if (!is_assignable(test_assignment(db, keyspace, *receiver))) {
                 throw exceptions::invalid_request_exception("Invalid null value for counter increment/decrement");
             }
-            return NULL_VALUE;
+            return make_shared<constants::null_literal::null_value>(receiver->type);
         }
 
         virtual assignment_testable::test_result test_assignment(database& db,
@@ -206,7 +201,7 @@ public:
             if (bytes.is_unset_value()) {
                 return UNSET_VALUE;
             }
-            return ::make_shared<constants::value>(cql3::raw_value::make_value(bytes));
+            return ::make_shared<constants::value>(cql3::raw_value::make_value(bytes), _receiver->type);
         }
     };
 

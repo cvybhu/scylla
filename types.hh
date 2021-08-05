@@ -600,6 +600,27 @@ public:
         return is_reversed() ? *underlying_type() : *this;
     }
 
+    // Returns the first underlying_type that is not reversed_type_impl
+    // for reversed_type(reversed_type(long_type)) returns long_type
+    const abstract_type& final_without_reversed() const {
+        const abstract_type* result = this;
+        while (result->is_reversed()) {
+            result = &result->without_reversed();
+        }
+        return *result;
+    }
+
+    // Is the first type other than reversed_type actually reversed in the end or not?
+    // for reversed_type(long_type) returns true
+    // for reversed_type(reversed_type(long_type)) returns false
+    bool is_finally_reversed() const {
+        if (is_reversed()) {
+            return !without_reversed().is_finally_reversed();
+        } else {
+            return false;
+        }
+    }
+
     friend class list_type_impl;
 private:
     mutable sstring _cql3_type_name;

@@ -45,7 +45,7 @@ sets::literal::prepare(database& db, const sstring& keyspace, lw_shared_ptr<colu
         // away to simplify predicate evaluation.  See also
         // https://issues.apache.org/jira/browse/CASSANDRA-5141
         if (receiver->type->is_multi_cell()) {
-            return cql3::constants::null_literal::NULL_VALUE;
+            return make_shared<cql3::constants::null_literal::null_value>(receiver->type);
         }
         // We've parsed empty maps as a set literal to break the ambiguity so
         // handle that case now. This branch works for frozen sets/maps only.

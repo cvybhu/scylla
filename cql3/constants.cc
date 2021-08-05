@@ -44,9 +44,125 @@
 
 namespace cql3 {
 
-thread_local const ::shared_ptr<constants::value> constants::UNSET_VALUE = ::make_shared<constants::value>(cql3::raw_value::make_unset_value());
+thread_local const ::shared_ptr<constants::value> constants::UNSET_VALUE = ::make_shared<constants::value>(cql3::raw_value::make_unset_value(), empty_type);
 thread_local const ::shared_ptr<term::raw> constants::NULL_LITERAL = ::make_shared<constants::null_literal>();
-thread_local const ::shared_ptr<terminal> constants::null_literal::NULL_VALUE = ::make_shared<constants::null_literal::null_value>();
+
+static cql_value constant_to_cql_value(const abstract_type& value_type, bytes_view value_as_bytes_view) {
+    switch (value_type.get_kind()) {
+        case abstract_type::kind::ascii:
+            return cql_value(ascii_value(value_as_bytes_view));
+
+        case abstract_type::kind::boolean:
+            return cql_value(bool_value(value_as_bytes_view));
+
+        case abstract_type::kind::byte:
+            return cql_value(int8_value(value_as_bytes_view));
+
+        case abstract_type::kind::bytes:
+            return cql_value(blob_value(value_as_bytes_view));
+
+        case abstract_type::kind::counter:
+            return cql_value(counter_value(value_as_bytes_view));
+
+        case abstract_type::kind::date:
+            return cql_value(date_value(value_as_bytes_view));
+
+        case abstract_type::kind::decimal:
+            return cql_value(decimal_value(value_as_bytes_view));
+
+        case abstract_type::kind::double_kind:
+            return cql_value(double_value(value_as_bytes_view));
+
+        case abstract_type::kind::duration:
+            return cql_value(duration_value(value_as_bytes_view));
+
+        case abstract_type::kind::float_kind:
+            return cql_value(float_value(value_as_bytes_view));
+
+        case abstract_type::kind::inet:
+            return cql_value(inet_value(value_as_bytes_view));
+
+        case abstract_type::kind::int32:
+            return cql_value(int32_value(value_as_bytes_view));
+
+        case abstract_type::kind::long_kind:
+            return cql_value(int64_value(value_as_bytes_view));
+
+        case abstract_type::kind::short_kind:
+            return cql_value(int16_value(value_as_bytes_view));
+
+        case abstract_type::kind::simple_date:
+            return cql_value(simple_date_value(value_as_bytes_view));
+
+        case abstract_type::kind::time:
+            return cql_value(time_value(value_as_bytes_view));
+
+        case abstract_type::kind::timestamp:
+            return cql_value(timestamp_value(value_as_bytes_view));
+
+        case abstract_type::kind::timeuuid:
+            return cql_value(timeuuid_value(value_as_bytes_view));
+
+        case abstract_type::kind::utf8:
+            return cql_value(utf8_value(value_as_bytes_view));
+
+        case abstract_type::kind::uuid:
+            return cql_value(uuid_value(value_as_bytes_view));
+
+        case abstract_type::kind::varint:
+            return cql_value(varint_value(value_as_bytes_view));
+
+        case abstract_type::kind::list:
+            throw std::runtime_error("constants::value can't be a list");
+
+        case abstract_type::kind::map:
+            throw std::runtime_error("constants::value can't be a map");
+
+        case abstract_type::kind::set:
+            throw std::runtime_error("constants::value can't be a set");
+
+        case abstract_type::kind::tuple:
+            throw std::runtime_error("constants::value can't be a tuple");
+
+        case abstract_type::kind::user:
+            throw std::runtime_error("constants::value can't be a user defined type");
+
+        case abstract_type::kind::empty:
+            throw std::runtime_error("can't convert empty constants::value to cql_value");
+            
+        case abstract_type::kind::reversed:
+            throw std::runtime_error("constant_to_cql_value reversed type is not allowed");
+
+        default:
+            throw std::runtime_error("constants::value::to_cql_value - unhandled type");
+    };
+}
+
+ordered_cql_value constants::value::to_ordered_cql_value() const {
+    const bool should_reverse = _type->is_finally_reversed();
+
+    if (_bytes.is_null()) {
+        return reverse_if_needed(cql_value(null_value{}), should_reverse);
+    }
+
+    if (_bytes.is_unset_value()) {
+        return reverse_if_needed(cql_value(unset_value{}), should_reverse);
+    }
+
+    bytes_view value_as_bytes_view = _bytes.to_view().with_linearized([] (bytes_view bv) {return bv;});
+    const abstract_type& not_reversed_type = _type->final_without_reversed();
+    cql_value cql_val = constant_to_cql_value(not_reversed_type, value_as_bytes_view);
+
+    return reverse_if_needed(std::move(cql_val), should_reverse);
+}
+
+ordered_cql_value constants::null_literal::null_value::to_ordered_cql_value() const {
+    if (_type->is_finally_reversed()) {
+        return ordered_cql_value(cql_value(cql3::null_value{}));
+    } else {
+        return ordered_cql_value(reversed_cql_value{cql_value(cql3::null_value{})});
+    }
+}
 
 std::ostream&
 operator<<(std::ostream&out, constants::type t)
@@ -161,7 +277,7 @@ constants::literal::prepare(database& db, const sstring& keyspace, lw_shared_ptr
         throw exceptions::invalid_request_exception(format("Invalid {} constant ({}) for \"{}\" of type {}",
             _type, _text, *receiver->name, receiver->type->as_cql3_type().to_string()));
     }
-    return ::make_shared<value>(cql3::raw_value::make_value(parsed_value(receiver->type)));
+    return ::make_shared<value>(cql3::raw_value::make_value(parsed_value(receiver->type)), receiver->type);
 }
 
 void constants::deleter::execute(mutation& m, const clustering_key_prefix& prefix, const update_parameters& params) {

@@ -239,4 +239,7 @@ namespace cql3 {
     };
 
     using ordered_cql_value = std::variant<cql_value, reversed_cql_value>;
+
+    // If should_reverse is true returns reversed_cql_value, otherwise just the cql_value
+    ordered_cql_value reverse_if_needed(cql_value&& value, bool should_reverse);
 }

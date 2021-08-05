@@ -59,7 +59,7 @@ lists::literal::prepare(database& db, const sstring& keyspace, lw_shared_ptr<col
     // away to simplify predicate evaluation. See also
     // https://issues.apache.org/jira/browse/CASSANDRA-5141
     if (receiver->type->is_multi_cell() &&  _elements.empty()) {
-        return cql3::constants::null_literal::NULL_VALUE;
+        return make_shared<cql3::constants::null_literal::null_value>(receiver->type);
     }
 
     auto&& value_spec = value_spec_of(*receiver);
@@ -77,7 +77,7 @@ lists::literal::prepare(database& db, const sstring& keyspace, lw_shared_ptr<col
         }
         values.push_back(std::move(t));
     }
-    delayed_value value(values);
+    delayed_value value(values, receiver->type);
     if (all_terminal) {
         return value.bind(query_options::DEFAULT);
     } else {
@@ -143,7 +143,7 @@ lists::value::from_serialized(const raw_value_view& val, const list_type_impl& t
                 elements.push_back(element.is_null() ? managed_bytes_opt() : managed_bytes_opt(type.get_elements_type()->decompose(element)));
             }
         }
-        return value(std::move(elements));
+        return value(std::move(elements), type.get_elements_type());
     } catch (marshal_exception& e) {
         throw exceptions::invalid_request_exception(e.what());
     }
@@ -200,6 +200,25 @@ lists::value::to_string() const {
     return os.str();
 }
 
+cql_value
+lists::value::to_cql_value() const {
+    std::vector<managed_bytes> new_elements;
+    new_elements.reserve(_elements.size());
+
+    for (const managed_bytes_opt& element : _elements) {
+        if (!element.has_value()) {
+            throw std::runtime_error("NULL is not allowed inside a list");
+        }
+
+        new_elements.push_back(*element);
+    }
+
+    return cql_value(list_value{
+        .elements = std::move(new_elements),
+        .elements_type = _elements_type
+    });
+}
+
 bool
 lists::delayed_value::contains_bind_marker() const {
     // False since we don't support them in collection
@@ -226,7 +245,21 @@ lists::delayed_value::bind(const query_options& options) {
 
         buffers.push_back(bo.with_value([] (const FragmentedView auto& v) { return managed_bytes(v); }));
     }
-    return ::make_shared<value>(buffers);
+    return ::make_shared<value>(buffers, _elements_type);
+}
+
+delayed_cql_value
+lists::delayed_value::to_delayed_cql_value() const {
+    std::vector<new_term> new_elements;
+    new_elements.reserve(_elements.size());
+
+    for (const shared_ptr<term>& element : _elements) {
+        new_elements.push_back(element->to_new_term());
+    }
+
+    return delayed_cql_value(delayed_list_value {
+        .elements = std::move(new_elements)
+    });
 }
 
 ::shared_ptr<terminal>

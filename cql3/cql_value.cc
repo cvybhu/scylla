@@ -166,4 +166,12 @@ blob_value::blob_value(bytes_view serialized_bytes) : value(serialized_bytes) {}
 inet_value::inet_value(bytes_view serialized_bytes) : value(serialized_bytes) {}
 
 uuid_value::uuid_value(bytes_view serialized_bytes) : value(serialized_bytes) {}
+
+ordered_cql_value reverse_if_needed(cql_value&& value, bool should_reverse) {
+    if (should_reverse) {
+        return ordered_cql_value(reversed_cql_value{std::move(value)});
+    } else {
+        return ordered_cql_value(std::move(value));
+    }
+}
 }
