@@ -35,9 +35,11 @@
 namespace cql3 {
 
 struct null_value {
+    std::strong_ordering operator<=>(const null_value&) const = default;
 };
 
 struct unset_value {
+    std::strong_ordering operator<=>(const unset_value&) const = default;
 };
 
 class raw_value;
