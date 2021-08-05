@@ -88,9 +88,9 @@ maps::literal::prepare(database& db, const sstring& keyspace, lw_shared_ptr<colu
 
         values.emplace(k, v);
     }
-    delayed_value value(
-            dynamic_cast<const map_type_impl&>(receiver->type->without_reversed()).get_keys_type()->as_less_comparator(),
-            values);
+    const map_type_impl& map_typ = dynamic_cast<const map_type_impl&>(receiver->type->without_reversed());
+
+    delayed_value value(values, map_typ.get_keys_type(), map_typ.get_values_type());
     if (all_terminal) {
         return value.bind(query_options::DEFAULT);
     } else {
@@ -176,7 +176,7 @@ maps::value::from_serialized(const raw_value_view& fragmented_value, const map_t
                             type.get_values_type()->decompose(e.second));
             }
         }
-        return maps::value(std::move(map));
+        return maps::value(std::move(map), type.get_keys_type(), type.get_values_type());
     } catch (marshal_exception& e) {
         throw exceptions::invalid_request_exception(e.what());
     }
@@ -221,6 +221,14 @@ maps::value::to_string() const {
     abort();
 }
 
+cql_value maps::value::to_cql_value() const {
+    return cql_value(map_value{
+        .elements = map,
+        .keys_type = keys_type,
+        .values_type = values_type
+    });
+}
+
 bool
 maps::delayed_value::contains_bind_marker() const {
     // False since we don't support them in collection
@@ -233,7 +241,7 @@ maps::delayed_value::fill_prepare_context(prepare_context& ctx) const {
 
 shared_ptr<terminal>
 maps::delayed_value::bind(const query_options& options) {
-    std::map<managed_bytes, managed_bytes, serialized_compare> buffers(_comparator);
+    std::map<managed_bytes, managed_bytes, serialized_compare> buffers(_keys_type->as_less_comparator());
     for (auto&& entry : _elements) {
         auto&& key = entry.first;
         auto&& value = entry.second;
@@ -260,7 +268,21 @@ maps::delayed_value::bind(const query_options& options) {
         }
         buffers.emplace(*to_managed_bytes_opt(key_bytes), *to_managed_bytes_opt(value_bytes));
     }
-    return ::make_shared<value>(std::move(buffers));
+    return ::make_shared<value>(std::move(buffers), _keys_type, _values_type);
+}
+
+delayed_cql_value
+maps::delayed_value::to_delayed_cql_value() const {
+    std::vector<std::pair<new_term, new_term>> new_elements;
+    new_elements.reserve(_elements.size());
+
+    for (const auto& [key, value] : _elements) {
+        new_elements.emplace_back(key->to_new_term(), value->to_new_term());
+    }
+
+    return delayed_cql_value(delayed_map_value{
+        .elements = std::move(new_elements)
+    });
 }
 
 ::shared_ptr<terminal>
