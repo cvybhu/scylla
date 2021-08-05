@@ -111,13 +111,14 @@ public:
     class value : public multi_item_terminal {
     public:
         std::vector<managed_bytes_opt> _elements;
+        tuple_type _type;
     public:
-        value(std::vector<managed_bytes_opt> elements)
-                : _elements(std::move(elements)) {
+        value(std::vector<managed_bytes_opt> elements, tuple_type type)
+                : _elements(std::move(elements)), _type(std::move(type)) {
         }
         static value from_serialized(const raw_value_view& buffer, const tuple_type_impl& type) {
           return buffer.with_value([&] (const FragmentedView auto& view) {
-              return value(type.split_fragmented(view));
+              return value(type.split_fragmented(view), make_shared<tuple_type_impl>(type));
           });
         }
         virtual cql3::raw_value get(const query_options& options) override {
@@ -137,9 +138,7 @@ public:
             return format("({})", join(", ", _elements));
         }
 
-        virtual ordered_cql_value to_ordered_cql_value() const override {
-            throw std::runtime_error(fmt::format("terminal::to_cql_value not implemented! {}:{}", __FILE__, __LINE__));
-        }
+        virtual ordered_cql_value to_ordered_cql_value() const override;
     };
 
     /**
@@ -189,7 +188,7 @@ public:
 
     public:
         virtual shared_ptr<terminal> bind(const query_options& options) override {
-            return ::make_shared<value>(bind_internal(options));
+            return ::make_shared<value>(bind_internal(options), _type);
         }
 
         virtual cql3::raw_value_view bind_and_get(const query_options& options) override {
@@ -197,10 +196,7 @@ public:
             return cql3::raw_value_view::make_temporary(cql3::raw_value::make_value(_type->build_value_fragmented(bind_internal(options))));
         }
 
-        virtual delayed_cql_value to_delayed_cql_value() const override {
-            throw std::runtime_error(
-                fmt::format("non_terminal::to_delayed_cql_value not implemented! {}:{}", __FILE__, __LINE__));
-        }
+        virtual delayed_cql_value to_delayed_cql_value() const override;
     };
 
     /**
@@ -210,8 +206,12 @@ public:
     class in_value : public terminal {
     private:
         utils::chunked_vector<std::vector<managed_bytes_opt>> _elements;
+        tuple_type _elements_type;
     public:
-        in_value(utils::chunked_vector<std::vector<managed_bytes_opt>> items) : _elements(std::move(items)) { }
+        in_value(utils::chunked_vector<std::vector<managed_bytes_opt>> items,
+                 tuple_type elements_type)
+                : _elements(std::move(items)), _elements_type(std::move(elements_type)) {
+        }
 
         static in_value from_serialized(const raw_value_view& value_view, const list_type_impl& type, const query_options& options);
 
@@ -229,9 +229,7 @@ public:
             return tuple_to_string(tuples);
         }
 
-        virtual ordered_cql_value to_ordered_cql_value() const override {
-            throw std::runtime_error(fmt::format("terminal::to_cql_value not implemented! {}:{}", __FILE__, __LINE__));
-        }
+        virtual ordered_cql_value to_ordered_cql_value() const override;
     };
 
     /**

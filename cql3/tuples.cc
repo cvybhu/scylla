@@ -80,6 +80,47 @@ tuples::literal::prepare(database& db, const sstring& keyspace, const std::vecto
     }
 }
 
+delayed_cql_value
+tuples::delayed_value::to_delayed_cql_value() const {
+    std::vector<new_term> new_elements;
+    for (const shared_ptr<term>& element : _elements) {
+        new_elements.push_back(element->to_new_term());
+    }
+
+    return delayed_cql_value(delayed_tuple_value{
+        .elements = std::move(new_elements)
+    });
+}
+
+cql_value
+tuples::value::to_cql_value() const {
+    std::vector<std::variant<managed_bytes, null_value>> new_elements;
+    new_elements.reserve(_elements.size());
+
+    for (const managed_bytes_opt& element : _elements) {
+        if (element.has_value()) {
+            new_elements.emplace_back(*element);
+        } else {
+            new_elements.emplace_back(null_value{});
+        }
+    }
+
+    std::vector<std::optional<data_type>> elements_types;
+    elements_types.reserve(_elements.size());
+    for (size_t i = 0; i < _elements.size(); i++) {
+        if (i < _type->all_types().size()) {
+            elements_types.emplace_back(std::make_optional(_type->all_types()[i]));
+        } else {
+            elements_types.emplace_back(std::nullopt);
+        }
+    }
+
+    return cql_value(tuple_value{
+        .elements = std::move(new_elements),
+        .elements_types = elements_types
+    });
+}
+
 tuples::in_value
 tuples::in_value::from_serialized(const raw_value_view& value_view, const list_type_impl& type, const query_options& options) {
     try {
@@ -95,10 +136,26 @@ tuples::in_value::from_serialized(const raw_value_view& value_view, const list_t
             // FIXME: Avoid useless copies.
             elements.emplace_back(ttype->split_fragmented(single_fragmented_view(ttype->decompose(e))));
         }
-        return tuples::in_value(elements);
+        return tuples::in_value(elements, ttype);
     } catch (marshal_exception& e) {
         throw exceptions::invalid_request_exception(e.what());
     }
+}
+
+cql_value
+tuples::in_value::to_cql_value() const {
+    std::vector<managed_bytes> new_elements;
+    new_elements.reserve(_elements.size());
+
+    for (const std::vector<managed_bytes_opt>& element : _elements) {
+        managed_bytes serialized_element = tuple_type_impl::build_value_fragmented(element);
+        new_elements.emplace_back(std::move(serialized_element));
+    }
+
+    return cql_value(list_value{
+        .elements = std::move(new_elements),
+        .elements_type = _elements_type
+    });
 }
 
 lw_shared_ptr<column_specification>
