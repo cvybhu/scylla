@@ -74,10 +74,9 @@ sets::literal::prepare(database& db, const sstring& keyspace, lw_shared_ptr<colu
 
         values.push_back(std::move(t));
     }
-    auto compare = dynamic_cast<const set_type_impl&>(receiver->type->without_reversed())
-            .get_elements_type()->as_less_comparator();
+    data_type elements_type = dynamic_cast<const set_type_impl&>(receiver->type->without_reversed()).get_elements_type();
 
-    auto value = ::make_shared<delayed_value>(compare, std::move(values));
+    auto value = ::make_shared<delayed_value>(std::move(values), std::move(elements_type));
     if (all_terminal) {
         return value->bind(query_options::DEFAULT);
     } else {
@@ -149,7 +148,7 @@ sets::value::from_serialized(const raw_value_view& val, const set_type_impl& typ
                 elements.insert(elements.end(), managed_bytes(type.get_elements_type()->decompose(element)));
             }
         }
-        return value(std::move(elements));
+        return value(std::move(elements), type.get_elements_type());
     } catch (marshal_exception& e) {
         throw exceptions::invalid_request_exception(e.what());
     }
@@ -194,6 +193,14 @@ sets::value::to_string() const {
     return result;
 }
 
+cql_value
+sets::value::to_cql_value() const {
+    return cql_value(set_value{
+        .elements = _elements,
+        .elements_type = _elements_type
+    });
+}
+
 bool
 sets::delayed_value::contains_bind_marker() const {
     // False since we don't support them in collection
@@ -206,7 +213,7 @@ sets::delayed_value::fill_prepare_context(prepare_context& ctx) const {
 
 shared_ptr<terminal>
 sets::delayed_value::bind(const query_options& options) {
-    std::set<managed_bytes, serialized_compare> buffers(_comparator);
+    std::set<managed_bytes, serialized_compare> buffers(_elements_type->as_less_comparator());
     for (auto&& t : _elements) {
         auto b = t->bind_and_get(options);
 
@@ -224,9 +231,25 @@ sets::delayed_value::bind(const query_options& options) {
         }
         buffers.insert(buffers.end(), *to_managed_bytes_opt(b));
     }
-    return ::make_shared<value>(std::move(buffers));
+    return ::make_shared<value>(std::move(buffers), _elements_type);
 }
 
+delayed_cql_value
+sets::delayed_value::to_delayed_cql_value() const {
+    std::vector<new_term> new_elements;
+    new_elements.reserve(_elements.size());
+
+    for (const shared_ptr<term>& element : _elements) {
+        if (element.get() == nullptr) {
+            throw std::runtime_error(fmt::format("TERM IS NULLPTR {}:{}", __FILE__, __LINE__));
+        }
+        new_elements.push_back(element->to_new_term());
+    }
+
+    return delayed_cql_value(delayed_set_value{
+        .elements = std::move(new_elements)
+    });
+}
 
 sets::marker::marker(int32_t bind_index, lw_shared_ptr<column_specification> receiver)
     : abstract_marker{bind_index, std::move(receiver)} {
