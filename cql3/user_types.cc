@@ -146,8 +146,8 @@ sstring user_types::literal::to_string() const {
     return format("{{{}}}", ::join(", ", _entries | boost::adaptors::transformed(kv_to_str)));
 }
 
-user_types::value::value(std::vector<managed_bytes_opt> elements)
-        : _elements(std::move(elements)) {
+user_types::value::value(std::vector<managed_bytes_opt> elements, user_type type)
+        : _elements(std::move(elements)), _type(std::move(type)) {
 }
 
 user_types::value user_types::value::from_serialized(const raw_value_view& v, const user_type_impl& type) {
@@ -158,7 +158,7 @@ user_types::value user_types::value::from_serialized(const raw_value_view& v, co
                     format("User Defined Type value contained too many fields (expected {}, got {})", type.size(), elements.size()));
         }
 
-        return value(std::move(elements));
+        return value(std::move(elements), make_shared<user_type_impl>(type));
     });
 }
 
@@ -176,6 +176,24 @@ std::vector<managed_bytes_opt> user_types::value::copy_elements() const {
 
 sstring user_types::value::to_string() const {
     return format("({})", join(", ", _elements));
+}
+
+cql_value user_types::value::to_cql_value() const {
+    std::vector<std::variant<managed_bytes, null_value>> new_elements;
+    new_elements.reserve(_elements.size());
+
+    for (const managed_bytes_opt& element : _elements) {
+        if (element.has_value()) {
+            new_elements.emplace_back(*element);
+        } else {
+            new_elements.emplace_back(null_value{});
+        }
+    }
+
+    return cql_value(user_type_value{
+        .field_values = std::move(new_elements),
+        .field_values_types = _type->field_types()
+    });
 }
 
 user_types::delayed_value::delayed_value(user_type type, std::vector<shared_ptr<term>> values)
@@ -219,11 +237,24 @@ std::vector<managed_bytes_opt> user_types::delayed_value::bind_internal(const qu
 }
 
 shared_ptr<terminal> user_types::delayed_value::bind(const query_options& options) {
-    return ::make_shared<user_types::value>(bind_internal(options));
+    return ::make_shared<user_types::value>(bind_internal(options), _type);
 }
 
 cql3::raw_value_view user_types::delayed_value::bind_and_get(const query_options& options) {
     return cql3::raw_value_view::make_temporary(cql3::raw_value::make_value(user_type_impl::build_value_fragmented(bind_internal(options))));
+}
+
+delayed_cql_value user_types::delayed_value::to_delayed_cql_value() const {
+    std::vector<new_term> new_values;
+    new_values.reserve(_values.size());
+
+    for (const shared_ptr<term>& val : _values) {
+        new_values.push_back(val->to_new_term());
+    }
+
+    return delayed_cql_value(delayed_user_type_value{
+        .field_values = std::move(new_values)
+    });
 }
 
 shared_ptr<terminal> user_types::marker::bind(const query_options& options) {

@@ -74,9 +74,9 @@ public:
 
     class value : public multi_item_terminal {
         std::vector<managed_bytes_opt> _elements;
+        user_type _type;
     public:
-        explicit value(std::vector<managed_bytes_opt>);
-        explicit value(std::vector<managed_bytes_view_opt>);
+        explicit value(std::vector<managed_bytes_opt>, user_type type);
 
         static value from_serialized(const raw_value_view&, const user_type_impl&);
 
@@ -85,9 +85,7 @@ public:
         virtual std::vector<managed_bytes_opt> copy_elements() const override;
         virtual sstring to_string() const override;
 
-        virtual ordered_cql_value to_ordered_cql_value() const override {
-            throw std::runtime_error(fmt::format("terminal::to_cql_value not implemented! {}:{}", __FILE__, __LINE__));
-        }
+        virtual ordered_cql_value to_ordered_cql_value() const override;
     };
 
     // Same purpose than Lists.DelayedValue, except we do handle bind marker in that case
@@ -104,10 +102,7 @@ public:
         virtual shared_ptr<terminal> bind(const query_options& options) override;
         virtual cql3::raw_value_view bind_and_get(const query_options& options) override;
 
-        virtual delayed_cql_value to_delayed_cql_value() const override {
-            throw std::runtime_error(
-                fmt::format("non_terminal::to_delayed_cql_value not implemented! {}:{}", __FILE__, __LINE__));
-        }
+        virtual delayed_cql_value to_delayed_cql_value() const override;
     };
 
     class marker : public abstract_marker {
