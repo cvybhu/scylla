@@ -242,4 +242,32 @@ namespace cql3 {
 
     // If should_reverse is true returns reversed_cql_value, otherwise just the cql_value
     ordered_cql_value reverse_if_needed(cql_value&& value, bool should_reverse);
+    raw_value to_raw_value(const cql_value&);
+    
+    raw_value to_raw_value(const bool_value&);
+    raw_value to_raw_value(const int8_value&);
+    raw_value to_raw_value(const int16_value&);
+    raw_value to_raw_value(const int32_value&);
+    raw_value to_raw_value(const int64_value&);
+    raw_value to_raw_value(const counter_value&);
+    raw_value to_raw_value(const varint_value&);
+    raw_value to_raw_value(const float_value&);
+    raw_value to_raw_value(const double_value&);
+    raw_value to_raw_value(const decimal_value&);
+    raw_value to_raw_value(const ascii_value&);
+    raw_value to_raw_value(const utf8_value&);
+    raw_value to_raw_value(const date_value&);
+    raw_value to_raw_value(const simple_date_value&);
+    raw_value to_raw_value(const duration_value&);
+    raw_value to_raw_value(const time_value&);
+    raw_value to_raw_value(const timestamp_value&);
+    raw_value to_raw_value(const timeuuid_value&);
+    raw_value to_raw_value(const blob_value&);
+    raw_value to_raw_value(const inet_value&);
+    raw_value to_raw_value(const uuid_value&);
+    raw_value to_raw_value(const tuple_value&);
+    raw_value to_raw_value(const list_value&);
+    raw_value to_raw_value(const set_value&);
+    raw_value to_raw_value(const map_value&);
+    raw_value to_raw_value(const user_type_value&);
 }

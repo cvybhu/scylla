@@ -174,4 +174,112 @@ ordered_cql_value reverse_if_needed(cql_value&& value, bool should_reverse) {
         return ordered_cql_value(std::move(value));
     }
 }
+
+raw_value to_raw_value(const cql_value& value) {
+    return std::visit([](const auto& val) {return to_raw_value(val);}, value);
+}
+    
+raw_value to_raw_value(const bool_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const int8_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const int16_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const int32_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const int64_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const counter_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const varint_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const float_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const double_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const decimal_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const ascii_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const utf8_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const date_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const simple_date_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const duration_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const time_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const timestamp_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const timeuuid_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const blob_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const inet_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const uuid_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const tuple_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const list_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const set_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const map_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
+
+raw_value to_raw_value(const user_type_value&) {
+    throw std::runtime_error(format("to_raw_value not implemented {}:{}", __FILE__, __LINE__));
+}
 }
