@@ -247,6 +247,10 @@ static std::vector<expr::expression> extract_partition_range(
         void operator()(const untyped_constant&) {
             on_internal_error(rlogger, "extract_partition_range(untyped_constant)");
         }
+
+        void operator()(const tuple_constructor&) {
+            on_internal_error(rlogger, "extract_partition_range(tuple_constructor)");
+        }
     } v;
     std::visit(v, where_clause);
     if (v.tokens) {
@@ -347,6 +351,10 @@ static std::vector<expr::expression> extract_clustering_prefix_restrictions(
 
         void operator()(const untyped_constant&) {
             on_internal_error(rlogger, "extract_clustering_prefix_restrictions(untyped_constant)");
+        }
+
+        void operator()(const tuple_constructor&) {
+            on_internal_error(rlogger, "extract_clustering_prefix_restrictions(tuple_constructor)");
         }
     } v;
     std::visit(v, where_clause);
@@ -1059,6 +1067,10 @@ struct multi_column_range_accumulator {
 
     void operator()(const untyped_constant&) {
         on_internal_error(rlogger, "untyped constant encountered outside binary operator");
+    }
+
+    void operator()(const tuple_constructor&) {
+        on_internal_error(rlogger, "tuple constructor encountered outside binary operator");
     }
 
     /// Intersects each range with v.  If any intersection is empty, clears ranges.
