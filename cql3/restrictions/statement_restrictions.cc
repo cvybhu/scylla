@@ -36,7 +36,6 @@
 #include "database.hh"
 #include "cartesian_product.hh"
 
-#include "cql3/expr/term_expr.hh"
 #include "cql3/constants.hh"
 #include "cql3/lists.hh"
 #include "cql3/selection/selection.hh"
@@ -232,10 +231,6 @@ static std::vector<expr::expression> extract_partition_range(
             on_internal_error(rlogger, "extract_partition_range(field_selection)");
         }
 
-        void operator()(const term_raw_ptr&) {
-            on_internal_error(rlogger, "extract_partition_range(term::raw)");
-        }
-
         void operator()(const null&) {
             on_internal_error(rlogger, "extract_partition_range(null)");
         }
@@ -343,10 +338,6 @@ static std::vector<expr::expression> extract_clustering_prefix_restrictions(
 
         void operator()(const field_selection&) {
             on_internal_error(rlogger, "extract_clustering_prefix_restrictions(field_selection)");
-        }
-
-        void operator()(const term_raw_ptr&) {
-            on_internal_error(rlogger, "extract_clustering_prefix_restrictions(term::raw)");
         }
 
         void operator()(const null&) {
@@ -1063,10 +1054,6 @@ struct multi_column_range_accumulator {
 
     void operator()(const field_selection&) {
         on_internal_error(rlogger, "field selection encountered outside binary operator");
-    }
-
-    void operator()(const term_raw_ptr&) {
-        on_internal_error(rlogger, "term::raw encountered outside binary operator");
     }
 
     void operator()(const null&) {
