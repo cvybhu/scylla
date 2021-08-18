@@ -82,16 +82,18 @@ class function_call;
 class cast;
 class field_selection;
 struct null;
+struct unset;
 struct bind_variable;
 struct untyped_constant;
+struct constant_value;
 struct tuple_constructor;
 struct collection_constructor;
 struct usertype_constructor;
 
 /// A CQL expression -- union of all possible expression types.  bool means a Boolean constant.
-using expression = std::variant<bool, conjunction, binary_operator, column_value, column_value_tuple, token,
+using expression = std::variant<conjunction, binary_operator, column_value, column_value_tuple, token,
                                 unresolved_identifier, column_mutation_attribute, function_call, cast,
-                                field_selection, null, bind_variable, untyped_constant,
+                                field_selection, null, unset, bind_variable, untyped_constant, constant_value,
                                 tuple_constructor, collection_constructor, usertype_constructor>;
 
 template <typename T>
@@ -202,6 +204,9 @@ struct field_selection {
 struct null {
 };
 
+struct unset {
+};
+
 struct bind_variable {
     enum class shape_type { scalar, scalar_in, tuple, tuple_in };
     // FIXME: infer shape from expression rather than from grammar
@@ -215,6 +220,20 @@ struct untyped_constant {
     enum type_class { integer, floating_point, string, boolean, duration, uuid, hex };
     type_class partial_type;
     sstring raw_text;
+};
+
+// A value serialized with the internal (latest) cql_serialization_format
+struct constant_value {
+    // Note that bytes can be empty even for an int32_type
+    // In that case the value represented is empty_value
+    managed_bytes value_bytes;
+
+    // Always non-null, contains a valid type
+    data_type value_type;
+
+    constant_value(managed_bytes value_bytes_, data_type value_type_)
+        : value_bytes(std::move(value_bytes_)), value_type(std::move(value_type_)) {
+    }
 };
 
 // Denotes construction of a tuple from its elements, e.g.  ('a', ?, some_column) in CQL.
@@ -298,7 +317,7 @@ requires std::regular_invocable<Fn, const binary_operator&>
 const binary_operator* find_atom(const expression& e, Fn f) {
     return std::visit(overloaded_functor{
             [&] (const binary_operator& op) { return f(op) ? &op : nullptr; },
-            [] (bool) -> const binary_operator* { return nullptr; },
+            [] (const constant_value&) -> const binary_operator* { return nullptr; },
             [&] (const conjunction& conj) -> const binary_operator* {
                 for (auto& child : conj.children) {
                     if (auto found = find_atom(child, f)) {
@@ -327,6 +346,9 @@ const binary_operator* find_atom(const expression& e, Fn f) {
                 return find_atom(*fs.structure, f);
             },
             [&] (const null&) -> const binary_operator* {
+                return nullptr;
+            },
+            [] (const unset&) -> const binary_operator* {
                 return nullptr;
             },
             [&] (const bind_variable&) -> const binary_operator* {
@@ -372,7 +394,7 @@ size_t count_if(const expression& e, Fn f) {
                 return std::accumulate(conj.children.cbegin(), conj.children.cend(), size_t{0},
                                        [&] (size_t acc, const expression& c) { return acc + count_if(c, f); });
             },
-            [] (bool) -> size_t { return 0; },
+            [] (const constant_value&) -> size_t { return 0; },
             [] (const column_value&) -> size_t { return 0; },
             [] (const column_value_tuple&) -> size_t { return 0; },
             [] (const token&) -> size_t { return 0; },
@@ -388,6 +410,9 @@ size_t count_if(const expression& e, Fn f) {
                 return count_if(*fs.structure, f);
             },
             [&] (const null&) -> size_t {
+                return 0;
+            },
+            [] (const unset&) -> size_t {
                 return 0;
             },
             [&] (const bind_variable&) -> size_t {

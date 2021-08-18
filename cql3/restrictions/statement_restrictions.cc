@@ -61,7 +61,6 @@ class statement_restrictions::initial_key_restrictions : public primary_key_rest
 public:
     initial_key_restrictions(bool allow_filtering)
         : _allow_filtering(allow_filtering) {
-        this->expression = true;
     }
     using bounds_range_type = typename primary_key_restrictions<T>::bounds_range_type;
 
@@ -209,7 +208,7 @@ static std::vector<expr::expression> extract_partition_range(
             // Partition key columns are not legal in tuples, so ignore tuples.
         }
 
-        void operator()(bool) {}
+        void operator()(const constant_value&) {}
 
         void operator()(const unresolved_identifier&) {
             on_internal_error(rlogger, "extract_partition_range(unresolved_identifier)");
@@ -233,6 +232,10 @@ static std::vector<expr::expression> extract_partition_range(
 
         void operator()(const null&) {
             on_internal_error(rlogger, "extract_partition_range(null)");
+        }
+
+        void operator()(const unset&) {
+            on_internal_error(rlogger, "extract_partition_range(unset)");
         }
 
         void operator()(const bind_variable&) {
@@ -318,7 +321,7 @@ static std::vector<expr::expression> extract_clustering_prefix_restrictions(
             // A token cannot be a clustering prefix restriction
         }
 
-        void operator()(bool) {}
+        void operator()(const constant_value&) {}
 
         void operator()(const unresolved_identifier&) {
             on_internal_error(rlogger, "extract_clustering_prefix_restrictions(unresolved_identifier)");
@@ -342,6 +345,10 @@ static std::vector<expr::expression> extract_clustering_prefix_restrictions(
 
         void operator()(const null&) {
             on_internal_error(rlogger, "extract_clustering_prefix_restrictions(null)");
+        }
+
+        void operator()(const unset&) {
+            on_internal_error(rlogger, "extract_clustering_prefix_restrictions(unset)");
         }
 
         void operator()(const bind_variable&) {
@@ -1018,10 +1025,14 @@ struct multi_column_range_accumulator {
         std::ranges::for_each(c.children, [this] (const expression& child) { std::visit(*this, child); });
     }
 
-    void operator()(bool b) {
-        if (!b) {
-            ranges.clear();
+    void operator()(const constant_value& v) {
+        if (v.value_type->get_kind() == abstract_type::kind::boolean && v.value_bytes.size() == 1) {
+            if (v.value_bytes[0] == 1) {
+                ranges.clear();
+            }
         }
+
+        on_internal_error(rlogger, "non-bool constant encountered outside binary operator");
     }
 
     void operator()(const column_value&) {
@@ -1058,6 +1069,10 @@ struct multi_column_range_accumulator {
 
     void operator()(const null&) {
         on_internal_error(rlogger, "null encountered outside binary operator");
+    }
+
+    void operator()(const unset&) {
+        on_internal_error(rlogger, "unset encountered outside binary operator");
     }
 
     void operator()(const bind_variable&) {

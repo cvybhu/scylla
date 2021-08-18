@@ -53,8 +53,8 @@ namespace restrictions {
  */
 class restriction {
 public:
-    // Init to false for now, to easily detect errors.  This whole class is going away.
-    cql3::expr::expression expression = false;
+    // Init to empty conjunction for now.  This whole class is going away.
+    cql3::expr::expression expression;
     virtual ~restriction() {}
 };
 

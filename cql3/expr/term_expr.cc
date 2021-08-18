@@ -810,8 +810,8 @@ cast_prepare_term(const cast& c, database& db, const sstring& keyspace, const co
 ::shared_ptr<term>
 prepare_term(const expression& expr, database& db, const sstring& keyspace, const column_specification_or_tuple& receiver) {
     return std::visit(overloaded_functor{
-        [&] (bool bool_constant) -> ::shared_ptr<term> {
-            on_internal_error(expr_logger, "bool constants are not yet reachable via term_raw_expr::prepare()");
+        [] (const constant_value&) -> ::shared_ptr<term> {
+            on_internal_error(expr_logger, "Can't prepare constant_value, it should not appear in parser output");
         },
         [&] (const binary_operator&) -> ::shared_ptr<term> {
             on_internal_error(expr_logger, "binary_operators are not yet reachable via term_raw_expr::prepare()");
@@ -846,6 +846,9 @@ prepare_term(const expression& expr, database& db, const sstring& keyspace, cons
         [&] (const null&) -> ::shared_ptr<term> {
             return null_prepare_term(db, keyspace, receiver);
         },
+        [] (const unset&) -> ::shared_ptr<term> {
+            on_internal_error(expr_logger, "Can't prepare unset value, it should not appear in parser output");
+        },
         [&] (const bind_variable& bv) -> ::shared_ptr<term> {
             switch (bv.shape) {
             case expr::bind_variable::shape_type::scalar:  return bind_variable_scalar_prepare_term(bv, db, keyspace, receiver);
@@ -879,8 +882,9 @@ assignment_testable::test_result
 test_assignment(const expression& expr, database& db, const sstring& keyspace, const column_specification& receiver) {
     using test_result = assignment_testable::test_result;
     return std::visit(overloaded_functor{
-        [&] (bool bool_constant) -> test_result {
-            on_internal_error(expr_logger, "bool constants are not yet reachable via term_raw_expr::test_assignment()");
+        [&] (const constant_value&) -> test_result {
+            // constant_value shouldn't appear in parser output
+            on_internal_error(expr_logger, "constant_values are not yet reachable via term_raw_expr::test_assignment()");
         },
         [&] (const binary_operator&) -> test_result {
             on_internal_error(expr_logger, "binary_operators are not yet reachable via term_raw_expr::test_assignment()");
@@ -914,6 +918,10 @@ test_assignment(const expression& expr, database& db, const sstring& keyspace, c
         },
         [&] (const null&) -> test_result {
             return null_test_assignment(db, keyspace, receiver);
+        },
+        [&] (const unset&) -> test_result {
+            // unset shouldn't appear in parser output
+            on_internal_error(expr_logger, "unsets are not yet reachable via term_raw_expr::test_assignment()");
         },
         [&] (const bind_variable& bv) -> test_result {
             // Same for all bind_variable::shape:s

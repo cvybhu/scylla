@@ -142,8 +142,8 @@ selectable::with_cast::to_string() const {
 shared_ptr<selectable>
 prepare_selectable(const schema& s, const expr::expression& raw_selectable) {
     return std::visit(overloaded_functor{
-        [&] (bool bool_constant) -> shared_ptr<selectable> {
-            on_internal_error(slogger, "no way to express SELECT TRUE/FALSE in the grammar yet");
+        [&] (const expr::constant_value&) -> shared_ptr<selectable> {
+            on_internal_error(slogger, "no way to express SELECT constant_value in the grammar yet");
         },
         [&] (const expr::conjunction& conj) -> shared_ptr<selectable> {
             on_internal_error(slogger, "no way to express 'SELECT a AND b' in the grammar yet");
@@ -211,6 +211,9 @@ prepare_selectable(const schema& s, const expr::expression& raw_selectable) {
         [&] (const expr::null&) -> shared_ptr<selectable> {
             on_internal_error(slogger, "null found its way to selector context");
         },
+        [&] (const expr::unset&) -> shared_ptr<selectable> {
+            on_internal_error(slogger, "unset found its way to selector context");
+        },
         [&] (const expr::bind_variable&) -> shared_ptr<selectable> {
             on_internal_error(slogger, "null found its way to selector context");
         },
@@ -232,8 +235,8 @@ prepare_selectable(const schema& s, const expr::expression& raw_selectable) {
 bool
 selectable_processes_selection(const expr::expression& raw_selectable) {
     return std::visit(overloaded_functor{
-        [&] (bool bool_constant) -> bool {
-            on_internal_error(slogger, "no way to express SELECT TRUE/FALSE in the grammar yet");
+        [&] (const expr::constant_value&) -> bool {
+            on_internal_error(slogger, "no way to express SELECT constant_value in the grammar yet");
         },
         [&] (const expr::conjunction& conj) -> bool {
             on_internal_error(slogger, "no way to express 'SELECT a AND b' in the grammar yet");
@@ -271,6 +274,9 @@ selectable_processes_selection(const expr::expression& raw_selectable) {
         },
         [&] (const expr::null&) -> bool {
             on_internal_error(slogger, "null found its way to selector context");
+        },
+        [] (const expr::unset&) -> bool {
+            on_internal_error(slogger, "unset found its way to selector context");
         },
         [&] (const expr::bind_variable&) -> bool {
             on_internal_error(slogger, "bind_variable found its way to selector context");

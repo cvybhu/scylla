@@ -526,7 +526,7 @@ bool is_satisfied_by(const binary_operator& opr, const column_value_eval_bag& ba
                 // token range.  It is impossible for any fetched row not to match now.
                 return true;
             },
-            [] (bool) -> bool {
+            [] (const constant_value&) -> bool {
                 on_internal_error(expr_logger, "is_satisfied_by: A constant cannot serve as the LHS of a binary expression");
             },
             [] (const conjunction&) -> bool {
@@ -553,6 +553,9 @@ bool is_satisfied_by(const binary_operator& opr, const column_value_eval_bag& ba
             [] (const null&) -> bool {
                 on_internal_error(expr_logger, "is_satisified_by: null cannot serve as the LHS of a binary expression");
             },
+            [] (const unset&) -> bool {
+                on_internal_error(expr_logger, "is_satisified_by: unset cannot serve as the LHS of a binary expression");
+            },
             [] (const bind_variable&) -> bool {
                 on_internal_error(expr_logger, "is_satisified_by: bind_variable cannot serve as the LHS of a binary expression");
             },
@@ -573,7 +576,12 @@ bool is_satisfied_by(const binary_operator& opr, const column_value_eval_bag& ba
 
 bool is_satisfied_by(const expression& restr, const column_value_eval_bag& bag) {
     return std::visit(overloaded_functor{
-            [&] (bool v) { return v; },
+            [] (const constant_value& v) {
+                if (v.value_type->get_kind() == abstract_type::kind::boolean && v.value_bytes.size() == 1) {
+                    return v.value_bytes[0] != 0;
+                }
+                on_internal_error(expr_logger, "is_satisfied_by: a non-bool value cannot serve as a restriction by itself");
+            },
             [&] (const conjunction& conj) {
                 return boost::algorithm::all_of(conj.children, [&] (const expression& c) {
                     return is_satisfied_by(c, bag);
@@ -606,6 +614,9 @@ bool is_satisfied_by(const expression& restr, const column_value_eval_bag& bag) 
             },
             [] (const null&) -> bool {
                 on_internal_error(expr_logger, "is_satisfied_by: NULL cannot serve as a restriction by itself");
+            },
+            [] (const unset&) -> bool {
+                on_internal_error(expr_logger, "is_satisfied_by: unset cannot serve as a restriction by itself");
             },
             [] (const bind_variable&) -> bool {
                 on_internal_error(expr_logger, "is_satisfied_by: a bind variable cannot serve as a restriction by itself");
@@ -749,8 +760,11 @@ nonwrapping_range<clustering_key_prefix> to_range(oper_t op, const clustering_ke
 value_set possible_lhs_values(const column_definition* cdef, const expression& expr, const query_options& options) {
     const auto type = cdef ? get_value_comparator(cdef) : long_type.get();
     return std::visit(overloaded_functor{
-            [] (bool b) {
-                return b ? unbounded_value_set : empty_value_set;
+            [] (const constant_value& b) {
+                if (b.value_type->get_kind() == abstract_type::kind::boolean && b.value_bytes.size() == 1) {
+                    return b.value_bytes[0] != 0 ? unbounded_value_set : empty_value_set;
+                }
+                on_internal_error(expr_logger, "possible_lhs_values: a non-bool constant cannot serve as a restriction by itself");
             },
             [&] (const conjunction& conj) {
                 return boost::accumulate(conj.children, unbounded_value_set,
@@ -840,7 +854,7 @@ value_set possible_lhs_values(const column_definition* cdef, const expression& e
                         [&] (const conjunction&) -> value_set {
                             on_internal_error(expr_logger, "possible_lhs_values: conjunctions are not supported as the LHS of a binary expression");
                         },
-                        [&] (bool) -> value_set {
+                        [] (const constant_value&) -> value_set {
                             on_internal_error(expr_logger, "possible_lhs_values: constants are not supported as the LHS of a binary expression");
                         },
                         [] (const unresolved_identifier&) -> value_set {
@@ -860,6 +874,9 @@ value_set possible_lhs_values(const column_definition* cdef, const expression& e
                         },
                         [] (const null&) -> value_set {
                             on_internal_error(expr_logger, "possible_lhs_values: nulls are not supported as the LHS of a binary expression");
+                        },
+                        [] (const unset&) -> value_set {
+                            on_internal_error(expr_logger, "possible_lhs_values: unsets are not supported as the LHS of a binary expression");
                         },
                         [] (const bind_variable&) -> value_set {
                             on_internal_error(expr_logger, "possible_lhs_values: bind variables are not supported as the LHS of a binary expression");
@@ -904,6 +921,9 @@ value_set possible_lhs_values(const column_definition* cdef, const expression& e
             },
             [] (const null&) -> value_set {
                 on_internal_error(expr_logger, "possible_lhs_values: a NULL cannot serve as a restriction by itself");
+            },
+            [] (const unset&) -> value_set {
+                on_internal_error(expr_logger, "possible_lhs_values: a unset cannot serve as a restriction by itself");
             },
             [] (const bind_variable&) -> value_set {
                 on_internal_error(expr_logger, "possible_lhs_values: a bind variable cannot serve as a restriction by itself");
@@ -960,7 +980,7 @@ bool is_supported_by(const expression& expr, const secondary_index::index& idx) 
                         [&] (const conjunction&) -> bool {
                             on_internal_error(expr_logger, "is_supported_by: conjunctions are not supported as the LHS of a binary expression");
                         },
-                        [&] (bool) -> bool {
+                        [] (const constant_value&) -> bool {
                             on_internal_error(expr_logger, "is_supported_by: constants are not supported as the LHS of a binary expression");
                         },
                         [] (const unresolved_identifier&) -> bool {
@@ -980,6 +1000,9 @@ bool is_supported_by(const expression& expr, const secondary_index::index& idx) 
                         },
                         [&] (const null&) -> bool {
                             on_internal_error(expr_logger, "is_supported_by: nulls are not supported as the LHS of a binary expression");
+                        },
+                        [] (const unset&) -> bool {
+                            on_internal_error(expr_logger, "is_supported_by: unsets are not supported as the LHS of a binary expression");
                         },
                         [&] (const bind_variable&) -> bool {
                             on_internal_error(expr_logger, "is_supported_by: bind variables are not supported as the LHS of a binary expression");
@@ -1024,7 +1047,7 @@ std::ostream& operator<<(std::ostream& os, const column_value& cv) {
 
 std::ostream& operator<<(std::ostream& os, const expression& expr) {
     std::visit(overloaded_functor{
-            [&] (bool b) { os << (b ? "TRUE" : "FALSE"); },
+            [&] (constant_value v) { os << v.value_bytes; },
             [&] (const conjunction& conj) { fmt::print(os, "({})", fmt::join(conj.children, ") AND (")); },
             [&] (const binary_operator& opr) {
                 os << "(" << *opr.lhs << ") " << opr.op << ' ' << *opr.rhs;
@@ -1070,6 +1093,9 @@ std::ostream& operator<<(std::ostream& os, const expression& expr) {
             [&] (const null&) {
                 // FIXME: adjust tests and change to NULL
                 fmt::print(os, "null");
+            },
+            [&] (const unset&) {
+                fmt::print(os, "unset");
             },
             [&] (const bind_variable&) {
                 // FIXME: store and present bind variable name
@@ -1153,7 +1179,7 @@ bool is_on_collection(const binary_operator& b) {
 
 expression replace_column_def(const expression& expr, const column_definition* new_cdef) {
     return std::visit(overloaded_functor{
-            [] (bool b){ return expression(b); },
+            [&] (const constant_value&){ return expr; },
             [&] (const conjunction& conj) {
                 const auto applied = conj.children | transformed(
                         std::bind(replace_column_def, std::placeholders::_1, new_cdef));
@@ -1175,6 +1201,7 @@ expression replace_column_def(const expression& expr, const column_definition* n
             [&] (const cast&) { return expr; },
             [&] (const field_selection&) { return expr; },
             [&] (const null&) { return expr; },
+            [&] (const unset&) { return expr; },
             [&] (const bind_variable&) { return expr; },
             [&] (const untyped_constant&) { return expr; },
             [&] (const tuple_constructor& tc) {
@@ -1208,7 +1235,7 @@ expression replace_column_def(const expression& expr, const column_definition* n
 
 expression replace_token(const expression& expr, const column_definition* new_cdef) {
     return std::visit(overloaded_functor{
-            [] (bool b) { return expression(b); },
+            [&] (const constant_value&) { return expr; },
             [&] (const conjunction& conj) {
                 const auto applied = conj.children | transformed(
                         std::bind(replace_token, std::placeholders::_1, new_cdef));
@@ -1244,6 +1271,9 @@ expression replace_token(const expression& expr, const column_definition* new_cd
                 return expr;
             },
             [&] (const null&) -> expression {
+                return expr;
+            },
+            [&] (const unset&) -> expression {
                 return expr;
             },
             [&] (const bind_variable&) -> expression {
