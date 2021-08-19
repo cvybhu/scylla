@@ -96,6 +96,9 @@ using expression = std::variant<conjunction, binary_operator, column_value, colu
                                 field_selection, null, unset, bind_variable, untyped_constant, constant_value,
                                 tuple_constructor, collection_constructor, usertype_constructor>;
 
+// Value of an evaluated expression
+using expression_value = std::variant<null, unset, constant_value>;
+
 template <typename T>
 concept ExpressionElement = utils::VariantElement<T, expression>;
 
@@ -548,6 +551,7 @@ nested_expression::nested_expression(ExpressionElement auto e)
         : nested_expression(expression(std::move(e))) {
 }
 
+cql3::raw_value_view get_raw_view(const expression_value&);
 } // namespace expr
 
 } // namespace cql3

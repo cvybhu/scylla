@@ -1332,6 +1332,13 @@ std::ostream& operator<<(std::ostream& s, oper_t op) {
     __builtin_unreachable();
 }
 
+cql3::raw_value_view get_raw_view(const expression_value& expr_val) {
+    return std::visit(overloaded_functor{
+        [](const null&) { return cql3::raw_value_view::make_null(); },
+        [](const unset&) {return cql3::raw_value_view::make_unset_value(); },
+        [](const constant_value& val) { return cql3::raw_value_view::make_value(managed_bytes_view(val.value_bytes)); }
+    }, expr_val);
+}
 } // namespace expr
 } // namespace cql3
 
