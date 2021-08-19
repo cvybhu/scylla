@@ -249,6 +249,12 @@ public:
         default: return ::to_bytes(std::get<managed_bytes>(_data));
         }
     }
+    managed_bytes to_managed_bytes() && {
+        switch (_data.index()) {
+        case 0:  return managed_bytes(std::move(std::get<bytes>(_data)));
+        default: return std::move(std::get<managed_bytes>(_data));
+        }
+    }
     raw_value_view to_view() const;
     friend class raw_value_view;
 };

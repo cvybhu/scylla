@@ -73,6 +73,7 @@ public:
         virtual std::vector<managed_bytes_opt> copy_elements() const override;
         virtual sstring to_string() const;
         friend class lists;
+        virtual data_type get_value_type() const;
     };
     /**
      * Basically similar to a Value, but with some non-pure function (that need

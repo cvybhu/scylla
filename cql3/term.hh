@@ -153,6 +153,8 @@ public:
     }
 
     virtual sstring to_string() const = 0;
+
+    virtual data_type get_value_type() const = 0;
 };
 
 class multi_item_terminal : public terminal {
@@ -187,5 +189,4 @@ public:
         return cql3::raw_value_view::make_null();
     };
 };
-
 }

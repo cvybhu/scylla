@@ -552,6 +552,14 @@ nested_expression::nested_expression(ExpressionElement auto e)
 }
 
 cql3::raw_value_view get_raw_view(const expression_value&);
+
+// Takes a prepared expression and calculates its value
+// TODO: Replace term with expression
+expression_value evaluate(::shared_ptr<term>, const query_options&);
+expression_value evaluate(term*, const query_options&);
+
+cql3::raw_value_view evaluate_to_raw_view(::shared_ptr<term>, const query_options&);
+cql3::raw_value_view evaluate_to_raw_view(term&, const query_options&);
 } // namespace expr
 
 } // namespace cql3

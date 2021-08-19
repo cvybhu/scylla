@@ -1339,6 +1339,45 @@ cql3::raw_value_view get_raw_view(const expression_value& expr_val) {
         [](const constant_value& val) { return cql3::raw_value_view::make_value(managed_bytes_view(val.value_bytes)); }
     }, expr_val);
 }
+
+expression_value evaluate(::shared_ptr<term> term_ptr, const query_options& options) {
+    return evaluate(term_ptr.get(), options);
+}
+
+expression_value evaluate(term* term_ptr, const query_options& options) {
+    if (term_ptr == nullptr) {
+        return expression_value(null());
+    }
+
+    ::shared_ptr<terminal> bound = term_ptr->bind(options);
+    if (bound.get() == nullptr) {
+        return expression_value(null());
+    }
+    raw_value raw_val = bound->get(options);
+    data_type val_type = bound->get_value_type();
+
+    if (raw_val.is_null()) {
+        return expression_value(null());
+    }
+
+    if (raw_val.is_unset_value()) {
+        return expression_value(unset());
+    }
+
+    return expression_value(constant_value(std::move(raw_val).to_managed_bytes(), std::move(val_type)));
+}
+
+cql3::raw_value_view evaluate_to_raw_view(::shared_ptr<term> term_ptr, const query_options& options) {
+    if (term_ptr.get() == nullptr) {
+        return cql3::raw_value_view::make_null();
+    }
+
+    return term_ptr->bind_and_get(options);
+}
+
+cql3::raw_value_view evaluate_to_raw_view(term& term_ref, const query_options& options) {
+    return term_ref.bind_and_get(options);
+}
 } // namespace expr
 } // namespace cql3
 

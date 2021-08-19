@@ -86,6 +86,7 @@ public:
         virtual sstring to_string() const override {
             return format("({})", join(", ", _elements));
         }
+        virtual data_type get_value_type() const;
     };
 
     /**
@@ -169,6 +170,8 @@ public:
             std::transform(_elements.begin(), _elements.end(), tuples.begin(), &tuples::tuple_to_string<managed_bytes_opt>);
             return tuple_to_string(tuples);
         }
+
+        virtual data_type get_value_type() const;
     };
 
     /**
