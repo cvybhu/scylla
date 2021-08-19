@@ -1659,7 +1659,7 @@ void statement_restrictions::prepare_indexed(const schema& idx_tbl_schema, bool 
             oper_t::EQ,
             // TODO: This should be a unique marker whose value we set at execution time.  There is currently no
             // handy mechanism for doing that in query_options.
-            ::make_shared<constants::value>(raw_value::make_unset_value()));
+            ::make_shared<constants::value>(raw_value::make_unset_value(), token_column->type));
 }
 
 std::vector<query::clustering_range> statement_restrictions::get_global_index_clustering_ranges(
@@ -1692,7 +1692,7 @@ std::vector<query::clustering_range> statement_restrictions::get_global_index_cl
     // WARNING: We must not yield to another fiber from here until the function's end, lest this RHS be
     // overwritten.
     const_cast<::shared_ptr<term>&>(std::get<binary_operator>((*_idx_tbl_ck_prefix)[0]).rhs) =
-            ::make_shared<constants::value>(raw_value::make_value(*token_bytes));
+            ::make_shared<constants::value>(raw_value::make_value(*token_bytes), token_column.type);
     return get_single_column_clustering_bounds(options, idx_tbl_schema, *_idx_tbl_ck_prefix);
 }
 
