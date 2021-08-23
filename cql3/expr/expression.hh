@@ -560,6 +560,15 @@ expression_value evaluate(term*, const query_options&);
 
 cql3::raw_value_view evaluate_to_raw_view(::shared_ptr<term>, const query_options&);
 cql3::raw_value_view evaluate_to_raw_view(term&, const query_options&);
+
+utils::chunked_vector<managed_bytes> get_list_elements(const constant_value&);
+utils::chunked_vector<managed_bytes> get_set_elements(const constant_value&);
+std::vector<managed_bytes_opt> get_tuple_elements(const constant_value&);
+std::vector<managed_bytes_opt> get_user_type_elements(const constant_value&);
+std::vector<std::pair<managed_bytes, managed_bytes>> get_map_elements(const constant_value&);
+std::vector<managed_bytes_opt> get_elements(const constant_value&);
+
+utils::chunked_vector<std::vector<managed_bytes_opt>> get_list_of_tuples_elements(const constant_value&);
 } // namespace expr
 
 } // namespace cql3

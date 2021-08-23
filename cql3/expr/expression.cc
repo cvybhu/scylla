@@ -43,6 +43,7 @@
 #include "types/set.hh"
 #include "utils/like_matcher.hh"
 #include "query-result-reader.hh"
+#include "types/user.hh"
 
 namespace cql3 {
 namespace expr {
@@ -1377,6 +1378,111 @@ cql3::raw_value_view evaluate_to_raw_view(::shared_ptr<term> term_ptr, const que
 
 cql3::raw_value_view evaluate_to_raw_view(term& term_ref, const query_options& options) {
     return term_ref.bind_and_get(options);
+}
+
+utils::chunked_vector<managed_bytes> get_list_elements(const constant_value& val) {
+    const abstract_type& val_type = val.value_type->without_reversed();
+
+    if (!val_type.is_list()) {
+        throw std::runtime_error(
+            fmt::format("expr::get_list_elements called on a type that is not a list: {}", val_type.name()));
+    }
+
+    return partially_deserialize_listlike(managed_bytes_view(val.value_bytes), cql_serialization_format::internal());
+}
+
+utils::chunked_vector<managed_bytes> get_set_elements(const constant_value& val) {
+    const abstract_type& val_type = val.value_type->without_reversed();
+
+    if (!val_type.is_set()) {
+        throw std::runtime_error(
+            fmt::format("expr::get_set_elements called on a type that is not a set: {}", val_type.name()));
+    }
+
+    return partially_deserialize_listlike(managed_bytes_view(val.value_bytes), cql_serialization_format::internal());
+}
+
+std::vector<std::pair<managed_bytes, managed_bytes>> get_map_elements(const constant_value& val) {
+    const abstract_type& val_type = val.value_type->without_reversed();
+
+    if (!val_type.is_map()) {
+        throw std::runtime_error(
+            fmt::format("expr::get_map_elements called on a type that is not a map: {}", val_type.name()));
+    }
+
+    return partially_deserialize_map(managed_bytes_view(val.value_bytes), cql_serialization_format::internal());
+}
+
+std::vector<managed_bytes_opt> get_tuple_elements(const constant_value& val) {
+    const abstract_type& val_type = val.value_type->without_reversed();
+
+    if (!val_type.is_tuple()) {
+        throw std::runtime_error(
+            fmt::format("expr::get_tuple_elements called on a type that is not a tuple: {}", val_type.name()));
+    }
+
+    const tuple_type_impl& ttype = dynamic_cast<const tuple_type_impl&>(val_type);
+
+    return ttype.split_fragmented(managed_bytes_view(val.value_bytes));
+}
+
+std::vector<managed_bytes_opt> get_user_type_elements(const constant_value& val) {
+    const abstract_type& val_type = val.value_type->without_reversed();
+
+    if (!val_type.is_user_type()) {
+        throw std::runtime_error(fmt::format(
+            "expr::get_user_type_elements called on a type that is not user type: {}", val_type.name()));
+    }
+
+    const user_type_impl& utype = dynamic_cast<const user_type_impl&>(val_type);
+
+    return utype.split_fragmented(managed_bytes_view(val.value_bytes));
+}
+
+static std::vector<managed_bytes_opt> convert_listlike(utils::chunked_vector<managed_bytes>&& elements) {
+    std::vector<managed_bytes_opt> new_elements;
+    new_elements.reserve(elements.size());
+
+    for (managed_bytes& element : elements) {
+        new_elements.emplace_back(std::move(element));
+    }
+
+    return new_elements;
+}
+
+std::vector<managed_bytes_opt> get_elements(const constant_value& val) {
+    switch (val.value_type->get_kind()) {
+        case abstract_type::kind::list:
+            return convert_listlike(get_list_elements(val));
+
+        case abstract_type::kind::set:
+            return convert_listlike(get_set_elements(val));
+
+        case abstract_type::kind::tuple:
+            return get_tuple_elements(val);
+
+        case abstract_type::kind::user:
+            return get_user_type_elements(val);
+
+        default:
+            throw std::runtime_error(fmt::format("expr::get_elements called on bad type: {}", val.value_type->name()));
+    }
+}
+
+utils::chunked_vector<std::vector<managed_bytes_opt>> get_list_of_tuples_elements(const constant_value& val) {
+    utils::chunked_vector<managed_bytes> elements = get_list_elements(val);
+    const list_type_impl& list_typ = dynamic_cast<const list_type_impl&>(val.value_type->without_reversed());
+    const tuple_type_impl& tuple_typ = dynamic_cast<const tuple_type_impl&>(*list_typ.get_elements_type());
+
+    utils::chunked_vector<std::vector<managed_bytes_opt>> tuples_list;
+    tuples_list.reserve(elements.size());
+
+    for (managed_bytes& element : elements) {
+        std::vector<managed_bytes_opt> cur_tuple = tuple_typ.split_fragmented(managed_bytes_view(element));
+        tuples_list.emplace_back(std::move(cur_tuple));
+    }
+
+    return tuples_list;
 }
 } // namespace expr
 } // namespace cql3
