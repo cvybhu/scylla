@@ -991,7 +991,7 @@ struct multi_column_range_accumulator {
 
     void operator()(const binary_operator& binop) {
         if (is_compare(binop.op)) {
-            auto opt_values = dynamic_pointer_cast<tuples::value>(binop.rhs->bind(options))->get_elements();
+            auto opt_values = expr::get_elements(std::get<expr::constant_value>(expr::evaluate(binop.rhs, options)));
             auto& lhs = std::get<column_value_tuple>(*binop.lhs);
             std::vector<managed_bytes> values(lhs.elements.size());
             for (size_t i = 0; i < lhs.elements.size(); ++i) {
@@ -1009,9 +1009,10 @@ struct multi_column_range_accumulator {
                                 }));
             } else if (auto mkr = dynamic_pointer_cast<tuples::in_marker>(binop.rhs)) {
                 // This is `(a,b) IN ?`.  RHS elements are themselves tuples, represented as vector<bytes_opt>.
-                const auto tup = static_pointer_cast<tuples::in_value>(mkr->bind(options));
-                statements::request_validations::check_not_null(tup, "Invalid null value for IN restriction");
-                process_in_values(tup->get_split_values());
+                const expr::expression_value tup = expr::evaluate(mkr, options);
+                statements::request_validations::check_not_null(!std::holds_alternative<expr::null>(tup),
+                    "Invalid null value for IN restriction");
+                process_in_values(expr::get_list_of_tuples_elements(std::get<constant_value>(tup)));
             }
             else {
                 on_internal_error(rlogger, format("multi_column_range_accumulator: unexpected atom {}", binop));
@@ -1434,12 +1435,14 @@ query::clustering_range range_from_raw_bounds(
     opt_bound lb, ub;
     for (const auto& e : exprs) {
         if (auto b = find_clustering_order(e)) {
-            const auto tup = dynamic_pointer_cast<tuples::value>(b->rhs->bind(options));
-            if (!tup) {
+            expr::expression_value tup = expr::evaluate(b->rhs, options);
+            if (std::holds_alternative<expr::null>(tup)) {
                 on_internal_error(rlogger, format("range_from_raw_bounds: unexpected atom {}", *b));
             }
+            expr::constant_value& tup_val = std::get<expr::constant_value>(tup);
+
             const auto r = to_range(
-                    b->op, clustering_key_prefix::from_optional_exploded(schema, tup->get_elements()));
+                    b->op, clustering_key_prefix::from_optional_exploded(schema, expr::get_elements(tup_val)));
             if (r.start()) {
                 lb = r.start();
             }

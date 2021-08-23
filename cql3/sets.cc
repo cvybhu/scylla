@@ -189,25 +189,33 @@ sets::adder::execute(mutation& m, const clustering_key_prefix& row_key, const up
 void
 sets::adder::do_add(mutation& m, const clustering_key_prefix& row_key, const update_parameters& params,
         shared_ptr<term> value, const column_definition& column) {
-    auto set_value = dynamic_pointer_cast<sets::value>(std::move(value));
+    expr::expression_value expr_val = expr::evaluate(value, params._options);
+
     auto& set_type = dynamic_cast<const set_type_impl&>(column.type->without_reversed());
+
     if (column.type->is_multi_cell()) {
-        if (!set_value || set_value->_elements.empty()) {
+        if (std::holds_alternative<expr::null>(expr_val)) {
+            return;
+        }
+
+        utils::chunked_vector<managed_bytes> set_elements = expr::get_set_elements(std::get<expr::constant_value>(expr_val));
+
+        if (set_elements.empty()) {
             return;
         }
 
         // FIXME: collection_mutation_view_description? not compatible with params.make_cell().
         collection_mutation_description mut;
 
-        for (auto&& e : set_value->_elements) {
+        for (auto&& e : set_elements) {
             mut.cells.emplace_back(to_bytes(e), params.make_cell(*set_type.value_comparator(), bytes_view(), atomic_cell::collection_member::yes));
         }
 
         m.set_cell(row_key, column, mut.serialize(set_type));
-    } else if (set_value != nullptr) {
+    } else if (!std::holds_alternative<expr::null>(expr_val)) {
         // for frozen sets, we're overwriting the whole cell
-        auto v = set_value->get_with_protocol_version(cql_serialization_format::internal());
-        m.set_cell(row_key, column, params.make_cell(*column.type, raw_value_view::make_value(v)));
+        auto v = get_raw_view(expr_val);
+        m.set_cell(row_key, column, params.make_cell(*column.type, v));
     } else {
         m.set_cell(row_key, column, params.make_dead_cell());
     }
@@ -217,16 +225,17 @@ void
 sets::discarder::execute(mutation& m, const clustering_key_prefix& row_key, const update_parameters& params) {
     assert(column.type->is_multi_cell()); // "Attempted to remove items from a frozen set";
 
-    auto&& value = _t->bind(params._options);
-    if (!value || value == constants::UNSET_VALUE) {
+    expr::expression_value value = expr::evaluate(_t, params._options);
+    if (!std::holds_alternative<expr::constant_value>(value)) {
         return;
     }
 
     collection_mutation_description mut;
-    auto svalue = dynamic_pointer_cast<sets::value>(value);
-    assert(svalue);
-    mut.cells.reserve(svalue->_elements.size());
-    for (auto&& e : svalue->_elements) {
+    const expr::constant_value& svalue = std::get<expr::constant_value>(value);
+    assert(svalue.value_type->is_set());
+    utils::chunked_vector<managed_bytes> set_elements = expr::get_set_elements(svalue);
+    mut.cells.reserve(set_elements.size());
+    for (auto&& e : set_elements) {
         mut.cells.push_back({to_bytes(e), params.make_dead_cell()});
     }
     m.set_cell(row_key, column, mut.serialize(*column.type));
@@ -235,12 +244,12 @@ sets::discarder::execute(mutation& m, const clustering_key_prefix& row_key, cons
 void sets::element_discarder::execute(mutation& m, const clustering_key_prefix& row_key, const update_parameters& params)
 {
     assert(column.type->is_multi_cell() && "Attempted to remove items from a frozen set");
-    auto elt = _t->bind(params._options);
-    if (!elt) {
+    expr::expression_value elt = expr::evaluate(_t, params._options);
+    if (std::holds_alternative<expr::null>(elt)) {
         throw exceptions::invalid_request_exception("Invalid null set element");
     }
     collection_mutation_description mut;
-    mut.cells.emplace_back(elt->get(params._options).to_bytes(), params.make_dead_cell());
+    mut.cells.emplace_back(to_bytes(std::get<expr::constant_value>(elt).value_bytes), params.make_dead_cell());
     m.set_cell(row_key, column, mut.serialize(*column.type));
 }
 

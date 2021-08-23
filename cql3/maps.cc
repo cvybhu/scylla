@@ -250,27 +250,27 @@ maps::putter::execute(mutation& m, const clustering_key_prefix& prefix, const up
 void
 maps::do_put(mutation& m, const clustering_key_prefix& prefix, const update_parameters& params,
         shared_ptr<term> value, const column_definition& column) {
-    auto map_value = dynamic_pointer_cast<maps::value>(value);
+    expr::expression_value expr_val = expr::evaluate(value, params._options);
+
     if (column.type->is_multi_cell()) {
-        if (!value) {
+        if (std::holds_alternative<expr::null>(expr_val)) {
             return;
         }
 
         collection_mutation_description mut;
 
         auto ctype = static_cast<const map_type_impl*>(column.type.get());
-        for (auto&& e : map_value->map) {
+        for (auto&& e : expr::get_map_elements(std::get<expr::constant_value>(expr_val))) {
             mut.cells.emplace_back(to_bytes(e.first), params.make_cell(*ctype->get_values_type(), raw_value_view::make_value(e.second), atomic_cell::collection_member::yes));
         }
 
         m.set_cell(prefix, column, mut.serialize(*ctype));
     } else {
         // for frozen maps, we're overwriting the whole cell
-        if (!value) {
+        if (std::holds_alternative<expr::null>(expr_val)) {
             m.set_cell(prefix, column, params.make_dead_cell());
         } else {
-            auto v = map_value->get_with_protocol_version(cql_serialization_format::internal());
-            m.set_cell(prefix, column, params.make_cell(*column.type, raw_value_view::make_value(v)));
+            m.set_cell(prefix, column, params.make_cell(*column.type, expr::get_raw_view(expr_val)));
         }
     }
 }
@@ -278,15 +278,15 @@ maps::do_put(mutation& m, const clustering_key_prefix& prefix, const update_para
 void
 maps::discarder_by_key::execute(mutation& m, const clustering_key_prefix& prefix, const update_parameters& params) {
     assert(column.type->is_multi_cell()); // "Attempted to delete a single key in a frozen map";
-    auto&& key = _t->bind(params._options);
-    if (!key) {
+    expr::expression_value key = expr::evaluate(_t, params._options);
+    if (std::holds_alternative<expr::null>(key)) {
         throw exceptions::invalid_request_exception("Invalid null map key");
     }
-    if (key == constants::UNSET_VALUE) {
+    if (std::holds_alternative<expr::unset>(key)) {
         throw exceptions::invalid_request_exception("Invalid unset map key");
     }
     collection_mutation_description mut;
-    mut.cells.emplace_back(key->get(params._options).to_bytes(), params.make_dead_cell());
+    mut.cells.emplace_back(to_bytes(std::get<expr::constant_value>(key).value_bytes), params.make_dead_cell());
 
     m.set_cell(prefix, column, mut.serialize(*column.type));
 }

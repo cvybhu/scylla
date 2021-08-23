@@ -306,18 +306,24 @@ operation::set_counter_value_from_tuple_list::prepare(database& db, const sstrin
             return true;
         }
         void execute(mutation& m, const clustering_key_prefix& prefix, const update_parameters& params) override {
-            const auto& value = _t->bind(params._options);
-            auto&& list_value = dynamic_pointer_cast<lists::value>(value);
-
-            if (!list_value) {
+            expr::expression_value value = expr::evaluate(_t, params._options);
+            if (!std::holds_alternative<expr::constant_value>(value)) {
                 throw std::invalid_argument("Invalid input data to counter set");
             }
 
+            const expr::constant_value list_value = std::get<expr::constant_value>(value);
+
+            if (!list_value.value_type->is_list()) {
+                throw std::invalid_argument("Invalid input data to counter set");
+            }
+
+            utils::chunked_vector<managed_bytes> list_elements = expr::get_list_elements(list_value);
+
             counter_id last(utils::UUID(0, 0));
-            counter_cell_builder ccb(list_value->_elements.size());
-            for (auto& bo : list_value->_elements) {
+            counter_cell_builder ccb(list_elements.size());
+            for (auto& bo : list_elements) {
                 // lexical etc cast fails should be enough type checking here.
-                auto tuple = value_cast<tuple_type_impl::native_type>(counter_tuple_type->deserialize(managed_bytes_view(*bo)));
+                auto tuple = value_cast<tuple_type_impl::native_type>(counter_tuple_type->deserialize(managed_bytes_view(bo)));
                 auto shard = value_cast<int>(tuple[0]);
                 auto id = counter_id(value_cast<utils::UUID>(tuple[1]));
                 auto clock = value_cast<int64_t>(tuple[2]);

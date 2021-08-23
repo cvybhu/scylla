@@ -220,8 +220,8 @@ public:
 #endif
 
     clustering_key_prefix composite_value(const query_options& options) const {
-        auto t = static_pointer_cast<tuples::value>(_value->bind(options));
-        auto values = t->get_elements();
+        expr::constant_value t = std::get<expr::constant_value>(expr::evaluate(_value, options));
+        auto values = expr::get_elements(t);
         std::vector<managed_bytes> components;
         for (unsigned i = 0; i < values.size(); i++) {
             auto component = statements::request_validations::check_not_null(values[i],
@@ -351,8 +351,7 @@ protected:
     virtual utils::chunked_vector<std::vector<managed_bytes_opt>> split_values(const query_options& options) const override {
         utils::chunked_vector<std::vector<managed_bytes_opt>> buffers(_values.size());
         std::transform(_values.begin(), _values.end(), buffers.begin(), [&] (const ::shared_ptr<term>& value) {
-            auto term = static_pointer_cast<multi_item_terminal>(value->bind(options));
-            return term->copy_elements();
+            return expr::get_elements(std::get<expr::constant_value>(expr::evaluate(value, options)));
         });
         return buffers;
     }
@@ -379,9 +378,10 @@ public:
 protected:
     virtual utils::chunked_vector<std::vector<managed_bytes_opt>> split_values(const query_options& options) const override {
         auto in_marker = static_pointer_cast<tuples::in_marker>(_marker);
-        auto in_value = static_pointer_cast<tuples::in_value>(in_marker->bind(options));
-        statements::request_validations::check_not_null(in_value, "Invalid null value for IN restriction");
-        return in_value->get_split_values();
+        expr::expression_value in_value = expr::evaluate(in_marker, options);
+        statements::request_validations::check_not_null(!std::holds_alternative<expr::null>(in_value), 
+            "Invalid null value for IN restriction");
+        return expr::get_list_of_tuples_elements(std::get<expr::constant_value>(in_value));
     }
 };
 
