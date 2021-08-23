@@ -23,6 +23,7 @@
 
 #include "tuples.hh"
 #include "types/list.hh"
+#include "cql3/lists.hh"
 
 namespace cql3 {
 
@@ -49,6 +50,20 @@ tuples::in_value::from_serialized(const raw_value_view& value_view, const list_t
     } catch (marshal_exception& e) {
         throw exceptions::invalid_request_exception(e.what());
     }
+}
+
+cql3::raw_value tuples::in_value::get(const query_options& options) {
+    const list_type_impl& my_list_type = dynamic_cast<const list_type_impl&>(_my_type->without_reversed());
+    data_type element_tuple_type = my_list_type.get_elements_type();
+
+    utils::chunked_vector<managed_bytes_opt> list_elements;
+    for (const std::vector<managed_bytes_opt>& tuple_elements : _elements) {
+        tuples::value cur_tuple(tuple_elements, element_tuple_type);
+        list_elements.push_back(to_managed_bytes_opt(cur_tuple.bind_and_get(options)));
+    }
+
+    lists::value list_value(std::move(list_elements), _my_type);
+    return list_value.get(options);
 }
 
 data_type tuples::in_value::get_value_type() const {
