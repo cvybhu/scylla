@@ -1740,5 +1740,10 @@ bool statement_restrictions::range_or_slice_eq_null(const query_options& options
             || boost::algorithm::any_of(_clustering_prefix_restrictions, std::bind_front(has_eq_null, options));
 }
 
+void statement_restrictions::clear_partition_restrictions_function_call_cache() {
+    for (expr::expression& r : _partition_range_restrictions) {
+        expr::clear_function_calls_cache(r);
+    }
+}
 } // namespace restrictions
 } // namespace cql3

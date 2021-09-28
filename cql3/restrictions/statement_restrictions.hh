@@ -525,6 +525,8 @@ public:
 
     /// True iff the partition range or slice is empty specifically due to a =NULL restriction.
     bool range_or_slice_eq_null(const query_options& options) const;
+
+    void clear_partition_restrictions_function_call_cache();
 };
 
 }

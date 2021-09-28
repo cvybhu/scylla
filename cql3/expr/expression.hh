@@ -53,6 +53,7 @@ namespace query {
 
 namespace cql3 {
 struct term;
+struct prepare_context;
 
 class column_identifier_raw;
 class query_options;
@@ -129,6 +130,26 @@ concept invocable_on_expression
         && std::invocable<Func, usertype_constructor>
         ;
 
+template <typename Func>
+concept invocable_on_expression_ref
+        = std::invocable<Func, conjunction&>
+        && std::invocable<Func, binary_operator&>
+        && std::invocable<Func, column_value&>
+        && std::invocable<Func, token&>
+        && std::invocable<Func, unresolved_identifier&>
+        && std::invocable<Func, column_mutation_attribute&>
+        && std::invocable<Func, function_call&>
+        && std::invocable<Func, cast&>
+        && std::invocable<Func, field_selection&>
+        && std::invocable<Func, null&>
+        && std::invocable<Func, bind_variable&>
+        && std::invocable<Func, untyped_constant&>
+        && std::invocable<Func, constant&>
+        && std::invocable<Func, tuple_constructor&>
+        && std::invocable<Func, collection_constructor&>
+        && std::invocable<Func, usertype_constructor&>
+        ;
+
 /// A CQL expression -- union of all possible expression types.  bool means a Boolean constant.
 class expression final {
     // 'impl' holds a variant of all expression types, but since 
@@ -146,6 +167,7 @@ public:
     expression& operator=(expression&&) noexcept = default;
 
     friend auto visit(invocable_on_expression auto&& visitor, const expression& e);
+    friend auto visit(invocable_on_expression_ref auto&& visitor, expression& e);
 
     template <ExpressionElement E>
     friend bool is(const expression& e);
@@ -346,6 +368,10 @@ inline expression::expression()
 }
 
 auto visit(invocable_on_expression auto&& visitor, const expression& e) {
+    return std::visit(visitor, e._v->v);
+}
+
+auto visit(invocable_on_expression_ref auto&& visitor, expression& e) {
     return std::visit(visitor, e._v->v);
 }
 
@@ -682,6 +708,11 @@ std::vector<managed_bytes_opt> get_elements(const constant&);
 // Get elements of list<tuple<>> as vector<vector<managed_bytes_opt>
 // It is useful with IN restrictions like (a, b) IN [(1, 2), (3, 4)].
 utils::chunked_vector<std::vector<managed_bytes_opt>> get_list_of_tuples_elements(const constant&);
+
+// Collects the column specification for the bind variables in this expression.
+void fill_prepare_context(expression&, cql3::prepare_context&);
+
+void clear_function_calls_cache(expression& e);
 
 expression to_expression(const ::shared_ptr<term>&);
 } // namespace expr

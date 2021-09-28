@@ -47,6 +47,7 @@
 #include <optional>
 #include <vector>
 #include <stddef.h>
+#include "cql3/expr/expression.hh"
 
 class schema;
 
@@ -68,8 +69,8 @@ private:
     std::vector<lw_shared_ptr<column_specification>> _target_columns;
     // A list of pointers to prepared `function_call` AST nodes, that
     // participate in partition key ranges computation within an LWT statement.
-    using function_calls_t = std::vector<::shared_ptr<cql3::functions::function_call>>;
-    function_calls_t _pk_fn_calls;
+    using function_calls_t = std::vector<expr::function_call>;
+    uint8_t _next_function_cache_index = 0;
     // The flag denoting whether the context is currently in partition key
     // processing mode (inside query restrictions AST nodes). If set to true,
     // then every `function_call` instance will be recorded in the context and
@@ -93,11 +94,10 @@ public:
 
     void set_bound_variables(const std::vector<shared_ptr<column_identifier>>& prepare_meta);
 
-    function_calls_t& pk_function_calls();
-
     // Record a new function call, which evaluates a partition key constraint.
     // Also automatically assigns an id to the AST node for caching purposes.
     void add_pk_function_call(::shared_ptr<cql3::functions::function_call> fn);
+    void add_pk_function_call(cql3::expr::function_call& fn);
 
     // Inform the context object that it has started or ended processing the
     // partition key part of statement restrictions.

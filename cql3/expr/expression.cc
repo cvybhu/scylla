@@ -50,6 +50,7 @@
 #include "cql3/user_types.hh"
 #include "cql3/functions/scalar_function.hh"
 #include "cql3/functions/function_call.hh"
+#include "cql3/prepare_context.hh"
 
 namespace cql3 {
 namespace expr {
@@ -1909,6 +1910,85 @@ utils::chunked_vector<std::vector<managed_bytes_opt>> get_list_of_tuples_element
     }
 
     return tuples_list;
+}
+
+void fill_prepare_context(expression& e, prepare_context& ctx) {
+    expr::visit(overloaded_functor {
+        [&](bind_variable& bind_var) {
+            ctx.add_variable_specification(bind_var.bind_index, bind_var.receiver);
+        },
+        [&](collection_constructor& c) {
+            for (expr::expression& element : c.elements) {
+                fill_prepare_context(element, ctx);
+            }
+        },
+        [&](tuple_constructor& t) {
+            for (expr::expression& element : t.elements) {
+                fill_prepare_context(element, ctx);
+            }
+        },
+        [&](usertype_constructor& u) {
+            for (auto& [field_name, field_val] : u.elements) {
+                fill_prepare_context(field_val, ctx);
+            }
+        },
+        [&](function_call& f) {
+            const shared_ptr<functions::function>& func = std::get<shared_ptr<functions::function>>(f.func);
+            if (ctx.is_processing_pk_restrictions() && !func->is_pure()) {
+                ctx.add_pk_function_call(f);
+            }
+
+            for (expr::expression& argument : f.args) {
+                fill_prepare_context(argument, ctx);
+            }
+        },
+        [](binary_operator&) {},
+        [](conjunction&) {},
+        [](token&) {},
+        [](unresolved_identifier&) {},
+        [](column_mutation_attribute&) {},
+        [](cast&) {},
+        [](field_selection&) {},
+        [](column_value&) {},
+        [](untyped_constant&) {},
+        [](null&) {},
+        [](constant&) {},
+    }, e);
+}
+
+void clear_function_calls_cache(expression& e) {
+    expr::visit(overloaded_functor {
+        [&](collection_constructor& c) {
+            for (expr::expression& element : c.elements) {
+                clear_function_calls_cache(element);
+            }
+        },
+        [&](tuple_constructor& t) {
+            for (expr::expression& element : t.elements) {
+                clear_function_calls_cache(element);
+            }
+        },
+        [&](usertype_constructor& u) {
+            for (auto& [field_name, field_val] : u.elements) {
+                clear_function_calls_cache(field_val);
+            }
+        },
+        [&](function_call& f) {
+            f.lwt_cache_id = std::nullopt;
+        },
+        [](bind_variable&) {},
+        [](binary_operator&) {},
+        [](conjunction&) {},
+        [](token&) {},
+        [](unresolved_identifier&) {},
+        [](column_mutation_attribute&) {},
+        [](cast&) {},
+        [](field_selection&) {},
+        [](column_value&) {},
+        [](untyped_constant&) {},
+        [](null&) {},
+        [](constant&) {},
+    }, e);
 }
 
 expression to_expression(const ::shared_ptr<term>& term_ptr) {
