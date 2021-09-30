@@ -183,7 +183,6 @@ public:
 template <typename E>
 concept LeafExpression
         = std::same_as<bool, E>
-        || std::same_as<column_value, E> 
         || std::same_as<token, E> 
         || std::same_as<unresolved_identifier, E> 
         || std::same_as<null, E> 
@@ -192,14 +191,14 @@ concept LeafExpression
         || std::same_as<constant, E>
         ;
 
-/// A column, optionally subscripted by a term (eg, c1 or c2['abc']).
+/// A column, optionally subscripted by a value (eg, c1 or c2['abc']).
 struct column_value {
     const column_definition* col;
-    ::shared_ptr<term> sub; ///< If present, this LHS is col[sub], otherwise just col.
+    std::optional<expression> sub; ///< If present, this LHS is col[sub], otherwise just col.
     /// For easy creation of vector<column_value> from vector<column_definition*>.
     column_value(const column_definition* col) : col(col) {}
     /// The compiler doesn't auto-generate this due to the other constructor's existence.
-    column_value(const column_definition* col, ::shared_ptr<term> sub) : col(col), sub(sub) {}
+    column_value(const column_definition* col, expr::expression sub) : col(col), sub(std::move(sub)) {}
 };
 
 /// Represents token function on LHS of an operator relation.  No need to list column definitions
@@ -218,10 +217,10 @@ enum class comparison_order : char {
 struct binary_operator {
     expression lhs;
     oper_t op;
-    ::shared_ptr<term> rhs;
+    expression rhs;
     comparison_order order;
 
-    binary_operator(expression lhs, oper_t op, ::shared_ptr<term> rhs, comparison_order order = comparison_order::cql);
+    binary_operator(expression lhs, oper_t op, expression rhs, comparison_order order = comparison_order::cql);
 };
 
 /// A conjunction of restrictions.
@@ -474,7 +473,12 @@ const binary_operator* find_atom(const expression& e, Fn f) {
                 }
                 return nullptr;
             },
-            [] (const column_value&) -> const binary_operator* { return nullptr; },
+            [&] (const column_value& cv) -> const binary_operator* {
+                if (cv.sub.has_value()) {
+                    return find_atom(*cv.sub, f);
+                }
+                return nullptr;
+            },
             [] (const token&) -> const binary_operator* { return nullptr; },
             [] (const unresolved_identifier&) -> const binary_operator* { return nullptr; },
             [] (const column_mutation_attribute&) -> const binary_operator* { return nullptr; },
@@ -730,9 +734,6 @@ utils::chunked_vector<std::vector<managed_bytes_opt>> get_list_of_tuples_element
 // Collects the column specification for the bind variables in this expression.
 // Sets lwt_cache_id field in function_calls.
 void fill_prepare_context(expression&, cql3::prepare_context&);
-
-// Needed for now because some fields of expression structs are terms, will be removed soon.
-void fill_prepare_context(::shared_ptr<term>&, cql3::prepare_context&);
 
 expression to_expression(const ::shared_ptr<term>&);
 } // namespace expr
