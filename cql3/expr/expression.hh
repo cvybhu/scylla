@@ -192,14 +192,14 @@ concept LeafExpression
         || std::same_as<constant, E>
         ;
 
-/// A column, optionally subscripted by a term (eg, c1 or c2['abc']).
+/// A column, optionally subscripted by a value (eg, c1 or c2['abc']).
 struct column_value {
     const column_definition* col;
-    ::shared_ptr<term> sub; ///< If present, this LHS is col[sub], otherwise just col.
+    std::optional<expression> sub; ///< If present, this LHS is col[sub], otherwise just col.
     /// For easy creation of vector<column_value> from vector<column_definition*>.
     column_value(const column_definition* col) : col(col) {}
     /// The compiler doesn't auto-generate this due to the other constructor's existence.
-    column_value(const column_definition* col, ::shared_ptr<term> sub) : col(col), sub(sub) {}
+    column_value(const column_definition* col, expr::expression sub) : col(col), sub(sub) {}
 };
 
 /// Represents token function on LHS of an operator relation.  No need to list column definitions
@@ -218,10 +218,10 @@ enum class comparison_order : char {
 struct binary_operator {
     expression lhs;
     oper_t op;
-    ::shared_ptr<term> rhs;
+    expression rhs;
     comparison_order order;
 
-    binary_operator(expression lhs, oper_t op, ::shared_ptr<term> rhs, comparison_order order = comparison_order::cql);
+    binary_operator(expression lhs, oper_t op, expression rhs, comparison_order order = comparison_order::cql);
 };
 
 /// A conjunction of restrictions.
