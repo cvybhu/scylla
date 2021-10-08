@@ -1964,6 +1964,75 @@ void clear_function_calls_cache(expression& e) {
     }, e);
 }
 
+bool contains_bind_marker(const expression& e) {
+    return expr::visit(overloaded_functor {
+        [&](const collection_constructor& c) {
+            for (const expression& element : c.elements) {
+                if (contains_bind_marker(element)) {
+                    return true;
+                }
+            }
+            return false;
+        },
+        [&](const tuple_constructor& t) {
+            for (const expression& element : t.elements) {
+                if (contains_bind_marker(element)) {
+                    return true;
+                }
+            }
+            return false;
+        },
+        [&](const usertype_constructor& u) {
+            for (auto& [field_name, field_val] : u.elements) {
+                if (contains_bind_marker(field_val)) {
+                    return true;
+                }
+            }
+            return false;
+        },
+        [&](const function_call& f) {
+            for (const expression& argument : f.args) {
+                if (contains_bind_marker(argument)) {
+                    return true;
+                }
+            }
+            return false;
+        },
+        [](const bind_variable&) { return true; },
+        [](const binary_operator& binop) {
+            return contains_bind_marker(binop.lhs) || contains_bind_marker(binop.rhs);
+        },
+        [](const conjunction& c) {
+            for (const expression& child : c.children) {
+                if (contains_bind_marker(child)) {
+                    return true;
+                }
+            }
+            return false;
+        },
+        [](const token&) {return false;},
+        [](const unresolved_identifier&) {return false;},
+        [](const column_mutation_attribute& a) {
+            return contains_bind_marker(a.column);
+        },
+        [](const cast& c) {
+            return contains_bind_marker(c.arg);
+        },
+        [](const field_selection& s) {
+            return contains_bind_marker(s.structure);
+        },
+        [](const column_value& v) {
+            if (v.sub.has_value()) {
+                return contains_bind_marker(*v.sub);
+            }
+            return false;
+        },
+        [](const untyped_constant&) { return false;},
+        [](const null&) { return false;},
+        [](const constant&) { return false;},
+    }, e);
+}
+
 expression to_expression(const ::shared_ptr<term>& term_ptr) {
     if (term_ptr.get() == nullptr) {
         return constant::make_null();

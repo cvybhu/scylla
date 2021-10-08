@@ -717,6 +717,12 @@ void fill_prepare_context(expression&, cql3::prepare_context&);
 
 void clear_function_calls_cache(expression& e);
 
+// Checks whether there is a bind_variable inside this expression
+// It's important to note, that even when there are no bind markers,
+// there can be other things that prevent immediate evaluation of an expression.
+// For example an expression can contain calls to nonpure functions.
+bool contains_bind_marker(const expression& e);
+
 expression to_expression(const ::shared_ptr<term>&);
 } // namespace expr
 
