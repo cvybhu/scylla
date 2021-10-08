@@ -42,7 +42,7 @@
 #pragma once
 
 #include "cql3/expr/expression.hh"
-#include "cql3/term.hh"
+#include "db/timeout_clock.hh"
 
 namespace cql3 {
 

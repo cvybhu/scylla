@@ -42,7 +42,6 @@
 #include "cql3/prepare_context.hh"
 #include "cql3/column_identifier.hh"
 #include "cql3/column_specification.hh"
-#include "cql3/functions/function_call.hh"
 
 namespace cql3 {
 
@@ -96,17 +95,6 @@ void prepare_context::set_bound_variables(const std::vector<shared_ptr<column_id
     const size_t bn_size = prepare_meta.size();
     _specs.resize(bn_size);
     _target_columns.resize(bn_size);
-}
-
-void prepare_context::add_pk_function_call(::shared_ptr<cql3::functions::function_call> fn) {
-    constexpr auto fn_limit = std::numeric_limits<uint8_t>::max();
-    if (_next_function_cache_index == fn_limit) {
-        throw exceptions::invalid_request_exception(
-            format("Too many function calls within one statement. Max supported number is {}", fn_limit));
-    }
-
-    fn->set_id(_next_function_cache_index);
-    _next_function_cache_index += 1;
 }
 
 void prepare_context::add_pk_function_call(expr::function_call& fn) {

@@ -96,7 +96,6 @@ public:
 
     // Record a new function call, which evaluates a partition key constraint.
     // Also automatically assigns an id to the AST node for caching purposes.
-    void add_pk_function_call(::shared_ptr<cql3::functions::function_call> fn);
     void add_pk_function_call(cql3::expr::function_call& fn);
 
     // Inform the context object that it has started or ended processing the
