@@ -316,8 +316,8 @@ public:
         , _value(std::move(value))
     {
         std::vector<data_type> column_types;
-        column_types.reserve(defs.size());
-        for (const column_definition* cdef : defs) {
+        column_types.reserve(_column_defs.size());
+        for (const column_definition* cdef : _column_defs) {
             column_types.push_back(cdef->type);
         }
 
