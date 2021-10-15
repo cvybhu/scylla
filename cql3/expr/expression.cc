@@ -1069,6 +1069,38 @@ bool is_on_collection(const binary_operator& b) {
     return false;
 }
 
+bool has_eq_restriction_on_column(const column_definition& column, const expression& e) {
+    // Look for binary operator describing eq relation with this column on lhs
+    const binary_operator* eq_restriction_search_res = find_atom(e, [&](const binary_operator& b) {
+        // Skip binary operators that are not =
+        if (b.op != oper_t::EQ) {
+            return false;
+        }
+
+        // Find if lhs of this binary_operator is the searched column
+        // or if it is a tuple containing the searched column
+        return visit(overloaded_functor{
+            [&](const column_value& cv) {
+                // Use column_defintion::operator== for comparison,
+                // columns with the same name but different schema will not be equal.
+                return *cv.col == column;
+            },
+            [&](const tuple_constructor& tc) {
+                for (const expression& elem : tc.elements) {
+                    if (is<column_value>(elem) && *as<column_value>(elem).col == column) {
+                        return true;
+                    }
+                }
+
+                return false;
+            },
+            [&](const auto&) {return false;}
+        }, b.lhs);
+    });
+
+    return eq_restriction_search_res != nullptr;
+}
+
 expression replace_column_def(const expression& expr, const column_definition* new_cdef) {
     return search_and_replace(expr, [&] (const expression& expr) -> std::optional<expression> {
         if (expr::is<column_value>(expr)) {

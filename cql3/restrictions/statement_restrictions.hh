@@ -215,6 +215,10 @@ public:
         return has_token(_partition_key_restrictions->expression);
     }
 
+    // Checks whether the given column has an eq restriction
+    // Eq restriction is `col = ...` or `col IN ...` or `(col, col2) = ...`
+    bool has_eq_restriction_on_column(const column_definition&) const;
+
     /**
      * Builds a possibly empty collection of column definitions that will be used for filtering
      * @param db - the database context

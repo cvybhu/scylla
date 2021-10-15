@@ -593,6 +593,12 @@ inline auto find_clustering_order(const expression& e) {
 /// True iff binary_operator involves a collection.
 extern bool is_on_collection(const binary_operator&);
 
+// Checks whether the given column has an EQ restriction in the expression
+// EQ restriction is `col = ...` or `(col, col2) = ...`
+// IN restriction is NOT an EQ restriction, this function will not look for IN restrictions.
+// Uses column_defintion::operator== for comparison, columns with the same name but different schema will not be equal.
+bool has_eq_restriction_on_column(const column_definition& column, const expression& e);
+
 /// Replaces every column_definition in an expression with this one.  Throws if any LHS is not a single
 /// column_value.
 extern expression replace_column_def(const expression&, const column_definition*);
