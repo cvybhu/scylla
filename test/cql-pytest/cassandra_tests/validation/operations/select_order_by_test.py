@@ -562,7 +562,6 @@ def testInOrderByWithTwoPartitionKeyColumns(cql, test_keyspace):
 
 # Test that ORDER BY columns allow skipping equality-restricted clustering columns, see CASSANDRA-10271.
 # Reproduces Scylla issue #2247.
-@pytest.mark.xfail(reason="Issue #2247")
 def testAllowSkippingEqualityAndSingleValueInRestrictedClusteringColumns(cql, test_keyspace):
     with create_table(cql, test_keyspace, "(a int, b int, c int, d int, PRIMARY KEY (a, b, c))") as table:
         execute(cql, table, "INSERT INTO %s (a, b, c, d) VALUES (?, ?, ?, ?)", 0, 0, 0, 0)
@@ -609,23 +608,21 @@ def testAllowSkippingEqualityAndSingleValueInRestrictedClusteringColumns(cql, te
                    [0, 0, 2, 2],
                    [0, 0, 1, 1])
 
-        errorMsg = "Order by currently only supports the ordering of columns following their declared order in the PRIMARY KEY"
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND b<? ORDER BY c DESC", 0, 1)
 
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND b<? ORDER BY c DESC", 0, 1)
-
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND (b, c) > (?, ?) ORDER BY c", 0, 0, 0)
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND (b, c) >= (?, ?) ORDER BY c", 0, 0, 0)
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND (b, c) < (?, ?) ORDER BY c", 0, 0, 0)
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND (b, c) <= (?, ?) ORDER BY c", 0, 0, 0)
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) > (?, ?) ORDER BY c", 0, 0, 0)
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) >= (?, ?) ORDER BY c", 0, 0, 0)
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) < (?, ?) ORDER BY c", 0, 0, 0)
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) <= (?, ?) ORDER BY c", 0, 0, 0)
         assert_rows(execute(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) = (?, ?) ORDER BY c ASC", 0, 0, 0),
                    [0, 0, 0, 0])
         assert_rows(execute(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) = (?, ?) ORDER BY c DESC", 0, 0, 0),
                    [0, 0, 0, 0])
 
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND (b, c) > ? ORDER BY c", 0, (0, 0))
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND (b, c) >= ? ORDER BY c", 0, (0, 0))
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND (b, c) < ? ORDER BY c", 0, (0, 0))
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND (b, c) <= ? ORDER BY c", 0, (0, 0))
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) > ? ORDER BY c", 0, (0, 0))
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) >= ? ORDER BY c", 0, (0, 0))
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) < ? ORDER BY c", 0, (0, 0))
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) <= ? ORDER BY c", 0, (0, 0))
         assert_rows(execute(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) = ? ORDER BY c ASC", 0, (0, 0)),
                    [0, 0, 0, 0])
         assert_rows(execute(cql, table, "SELECT * FROM %s WHERE a=? AND (b, c) = ? ORDER BY c DESC", 0, (0, 0)),
@@ -680,10 +677,10 @@ def testAllowSkippingEqualityAndSingleValueInRestrictedClusteringColumns(cql, te
                    [0, 1, 2, 5],
                    [0, 0, 2, 2])
 
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND b IN ? ORDER BY c", 0, [0])
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND b IN (?,?) ORDER BY c", 0, 1, 3)
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND (b,c) IN ? ORDER BY c", 0, [(0, 0)])
-        assert_invalid_message(cql, table, errorMsg, "SELECT * FROM %s WHERE a=? AND (b,c) IN ((?,?), (?,?)) ORDER BY c", 0, 0, 0, 0, 1)
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND b IN ? ORDER BY c", 0, [0])
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND b IN (?,?) ORDER BY c", 0, 1, 3)
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND (b,c) IN ? ORDER BY c", 0, [(0, 0)])
+        assert_invalid(cql, table, "SELECT * FROM %s WHERE a=? AND (b,c) IN ((?,?), (?,?)) ORDER BY c", 0, 0, 0, 0, 1)
 
 
 def testSelectWithReversedTypeInReverseOrderWithStaticColumnsWithoutStaticRow(cql, test_keyspace):
