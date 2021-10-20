@@ -148,7 +148,7 @@ private:
         selection::selection& selection,
         const restrictions::statement_restrictions& restrictions);
 
-    bool is_reversed(const schema& schema) const;
+    bool is_reversed(const schema& schema, const restrictions::statement_restrictions&) const;
 
     /** If ALLOW FILTERING was not specified, this verifies that it is not needed */
     void check_needs_filtering(
