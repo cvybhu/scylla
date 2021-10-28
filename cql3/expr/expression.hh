@@ -666,8 +666,7 @@ extern expression replace_token(const expression&, const column_definition*);
 // Recursively copies e and returns it. Calls replace_candidate() on all nodes. If it returns nullopt,
 // continue with the copying. If it returns an expression, that expression replaces the current node.
 //
-// Note only binary_operator's LHS is searched. The RHS is not an expression, but a term, so it is left
-// unmodified.
+// Note only binary_operator's LHS is searched.
 extern expression search_and_replace(const expression& e,
         const noncopyable_function<std::optional<expression> (const expression& candidate)>& replace_candidate);
 
