@@ -525,6 +525,9 @@ public:
 
     /// True iff the partition range or slice is empty specifically due to a =NULL restriction.
     bool range_or_slice_eq_null(const query_options& options) const;
+
+    /// Clears the lwt_cache_id in all function_calls that are involved in partition key restrictions
+    void clear_partition_restrictions_function_call_cache();
 };
 
 }

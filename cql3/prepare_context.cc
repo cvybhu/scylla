@@ -97,23 +97,15 @@ void prepare_context::set_bound_variables(const std::vector<shared_ptr<column_id
     _target_columns.resize(bn_size);
 }
 
-void prepare_context::clear_pk_function_calls_cache() {
-    for (::shared_ptr<std::optional<uint8_t>>& cache_id : _pk_function_calls_cache_ids) {
-        if (cache_id.get() != nullptr) {
-            *cache_id = std::nullopt;
-        }
-    }
-}
-
 void prepare_context::add_pk_function_call(expr::function_call& fn) {
     constexpr auto fn_limit = std::numeric_limits<uint8_t>::max();
-    if (_pk_function_calls_cache_ids.size() == fn_limit) {
+    if (_next_pk_function_cache_id == fn_limit) {
         throw exceptions::invalid_request_exception(
             format("Too many function calls within one statement. Max supported number is {}", fn_limit));
     }
 
-    fn.lwt_cache_id = ::make_shared<std::optional<uint8_t>>(_pk_function_calls_cache_ids.size());
-    _pk_function_calls_cache_ids.emplace_back(fn.lwt_cache_id);
+    fn.lwt_cache_id = _next_pk_function_cache_id;
+    _next_pk_function_cache_id += 1;
 }
 
 

@@ -500,7 +500,7 @@ modification_statement::prepare(database& db, prepare_context& ctx, cql_stats& s
     // if it's not a conditional statement so that the AST nodes don't
     // participate in the caching mechanism later.
     if (!prepared_stmt->has_conditions() && prepared_stmt->_restrictions.has_value()) {
-        ctx.clear_pk_function_calls_cache();
+        prepared_stmt->_restrictions->clear_partition_restrictions_function_call_cache();
     }
     return prepared_stmt;
 }

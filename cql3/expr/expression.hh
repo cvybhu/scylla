@@ -261,21 +261,7 @@ struct function_call {
     // The query should be executed on a shard that has the pk partition,
     // but it changes with each uuid() call.
     // uuid() call result is cached and sent to the proper shard.
-    //
-    // Cache id is kept in shared_ptr because of how prepare_context works.
-    // During fill_prepare_context all function cache ids are collected
-    // inside prepare_context.
-    // Later when some condition occurs we might decide to clear
-    // cache ids of all function calls found in prepare_context.
-    // However by this time these function calls could have been
-    // copied multiple times. Prepare_context keeps a shared_ptr
-    // to function_call ids, and then clearing the shared id
-    // clears it in all possible copies.
-    // This logic was introduced back when everything was shared_ptr<term>,
-    // now a better solution might exist.
-    //
-    // This field can be nullptr, it means that there is no cache id set.
-    ::shared_ptr<std::optional<uint8_t>> lwt_cache_id;
+    std::optional<uint8_t> lwt_cache_id;
 };
 
 struct cast {
@@ -737,6 +723,9 @@ utils::chunked_vector<std::vector<managed_bytes_opt>> get_list_of_tuples_element
 // Collects the column specification for the bind variables in this expression.
 // Sets lwt_cache_id field in function_calls.
 void fill_prepare_context(expression&, cql3::prepare_context&);
+
+// Sets lwt_cache_id to nullopt for every function_call in the expression
+void clear_function_calls_cache(expression& e);
 
 // Checks whether there is a bind_variable inside this expression
 // It's important to note, that even when there are no bind markers,

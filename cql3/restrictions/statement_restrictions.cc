@@ -1741,5 +1741,17 @@ bool statement_restrictions::range_or_slice_eq_null(const query_options& options
     return boost::algorithm::any_of(_partition_range_restrictions, std::bind_front(has_eq_null, options))
             || boost::algorithm::any_of(_clustering_prefix_restrictions, std::bind_front(has_eq_null, options));
 }
+
+void statement_restrictions::clear_partition_restrictions_function_call_cache() {
+    expr::clear_function_calls_cache(_partition_key_restrictions->expression);
+
+    if (_where.has_value()) {
+        expr::clear_function_calls_cache(*_where);
+    }
+
+    for (expr::expression& r : _partition_range_restrictions) {
+        expr::clear_function_calls_cache(r);
+    }
+}
 } // namespace restrictions
 } // namespace cql3

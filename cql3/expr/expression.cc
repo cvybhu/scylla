@@ -1714,10 +1714,10 @@ constant evaluate(const function_call& fun_call, const query_options& options) {
         arguments.emplace_back(to_bytes_opt(std::move(arg_val.value)));
     }
 
-    bool has_cache_id = fun_call.lwt_cache_id.get() != nullptr && fun_call.lwt_cache_id->has_value();
+    bool has_cache_id = fun_call.lwt_cache_id.has_value();
     if (has_cache_id) {
         computed_function_values::mapped_type* cached_value =
-            options.find_cached_pk_function_call(**fun_call.lwt_cache_id);
+            options.find_cached_pk_function_call(*fun_call.lwt_cache_id);
         if (cached_value != nullptr) {
             return constant(raw_value::make_value(*cached_value), scalar_fun->return_type());
         }
@@ -1726,7 +1726,7 @@ constant evaluate(const function_call& fun_call, const query_options& options) {
     bytes_opt result = scalar_fun->execute(cql_serialization_format::internal(), arguments);
 
     if (has_cache_id) {
-        options.cache_pk_function_call(**fun_call.lwt_cache_id, result);
+        options.cache_pk_function_call(*fun_call.lwt_cache_id, result);
     }
 
     if (!result.has_value()) {
@@ -1921,6 +1921,58 @@ void fill_prepare_context(expression& e, prepare_context& ctx) {
 bool contains_bind_marker(const expression& e) {
     const bind_variable* search_res = find_in_expression<bind_variable>(e, [](const bind_variable&) { return true; });
     return search_res != nullptr;
+}
+
+void clear_function_calls_cache(expression& e) {
+    expr::visit(overloaded_functor {
+        [&](collection_constructor& c) {
+            for (expr::expression& element : c.elements) {
+                clear_function_calls_cache(element);
+            }
+        },
+        [&](tuple_constructor& t) {
+            for (expr::expression& element : t.elements) {
+                clear_function_calls_cache(element);
+            }
+        },
+        [&](usertype_constructor& u) {
+            for (auto& [field_name, field_val] : u.elements) {
+                clear_function_calls_cache(field_val);
+            }
+        },
+        [&](function_call& f) {
+            f.lwt_cache_id = std::nullopt;
+        },
+        [](bind_variable&) {},
+        [](binary_operator& b) {
+            clear_function_calls_cache(b.lhs);
+            clear_function_calls_cache(b.rhs);
+        },
+        [](conjunction& c) {
+            for (expression& e : c.children) {
+                clear_function_calls_cache(e);
+            }
+        },
+        [](token&) {},
+        [](unresolved_identifier&) {},
+        [](column_mutation_attribute& cma) {
+            clear_function_calls_cache(cma.column);
+        },
+        [](cast& c) {
+            clear_function_calls_cache(c.arg);
+        },
+        [](field_selection& fs) {
+            clear_function_calls_cache(fs.structure);
+        },
+        [](column_value& cv) {
+            if (cv.sub.has_value()) {
+                clear_function_calls_cache(*cv.sub);
+            }
+        },
+        [](untyped_constant&) {},
+        [](null&) {},
+        [](constant&) {},
+    }, e);
 }
 } // namespace expr
 } // namespace cql3

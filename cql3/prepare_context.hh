@@ -67,9 +67,6 @@ private:
     std::vector<shared_ptr<column_identifier>> _variable_names;
     std::vector<lw_shared_ptr<column_specification>> _specs;
     std::vector<lw_shared_ptr<column_specification>> _target_columns;
-    // A list of pointers to prepared `function_call` cache ids, that
-    // participate in partition key ranges computation within an LWT statement.
-    std::vector<::shared_ptr<std::optional<uint8_t>>> _pk_function_calls_cache_ids;
 
     // The flag denoting whether the context is currently in partition key
     // processing mode (inside query restrictions AST nodes). If set to true,
@@ -78,6 +75,9 @@ private:
     // the function call results.
     bool _processing_pk_restrictions = false;
 
+    // Next free value to assign to expr::function_call::lwt_cache_id.
+    // Used in add_pk_function_call().
+    int8_t _next_pk_function_cache_id = 0;
 public:
 
     prepare_context() = default;
@@ -93,8 +93,6 @@ public:
     void add_variable_specification(int32_t bind_index, lw_shared_ptr<column_specification> spec);
 
     void set_bound_variables(const std::vector<shared_ptr<column_identifier>>& prepare_meta);
-
-    void clear_pk_function_calls_cache();
 
     // Record a new function call, which evaluates a partition key constraint.
     // Also automatically assigns an id to the AST node for caching purposes.
