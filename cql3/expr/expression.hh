@@ -449,6 +449,9 @@ using value_set = std::variant<value_list, nonwrapping_range<managed_bytes>>;
 /// - `A=1 AND A<=0` restricts A to an empty list; no value is able to satisfy the expression
 /// - `A>=NULL` also restricts A to an empty list; all comparisons to NULL are false
 /// - an expression without A "restricts" A to unbounded range
+///
+/// In case of a subscripted value, e.g `mycolumn[5] = 6` you should pass `mycolumn` as the first argument
+/// to get possible lhs values.
 extern value_set possible_lhs_values(const column_definition*, const expression&, const query_options&);
 
 /// Turns value_set into a range, unless it's a multi-valued list (in which case this throws).

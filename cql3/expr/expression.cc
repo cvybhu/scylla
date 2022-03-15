@@ -803,10 +803,9 @@ value_set possible_lhs_values(const column_definition* cdef, const expression& e
                             throw std::logic_error(format("possible_lhs_values: unhandled operator {}", oper));
                         },
                         [&] (const subscript& s) -> value_set {
-                            // FIXME: This looks wrong, the restriction is for the subscripted value, not the column.
-                            // Code copied from column_value& handler to preserve behaviour.
-                            // I didn't want to introduce changes in a refactor PR.
-                            // Will be fixed in another patch soon.
+                            // Same as column_value& handler
+                            // When the user wants possible values of subscripted value they should pass
+                            // the subscripted column as argument to possible_lhs_values
                             const column_value& col = get_subscripted_column(s);
 
                             if (!cdef || cdef != col.col) {
