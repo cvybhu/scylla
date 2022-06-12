@@ -2300,5 +2300,55 @@ type_of(const expression& e) {
     }, e);
 }
 
+bool is_single_column_restriction(const expression& e) {
+    if (find_in_expression<unresolved_identifier>(e, [](const auto&) {return true;})) {
+        on_internal_error(expr_logger, format("is_single_column_restriction - expression is not prepared: {}", e));
+    }
+
+    const column_value* the_column = nullptr;
+    bool result = false;
+
+    find_in_expression<column_value>(e,
+        [&](const column_value& cval) -> bool {
+            if (the_column == nullptr) {
+                the_column = &cval;
+                result = true;
+            } else if (the_column->col != cval.col) {
+                result = false;
+            }
+
+            return false;
+        }
+    );
+
+    return result;
+}
+
+const column_value& get_the_only_column(const expression& e) {
+    if (find_in_expression<unresolved_identifier>(e, [](const auto&) {return true;})) {
+        on_internal_error(expr_logger, format("get_the_only_column - expression is not prepared: {}", e));
+    }
+
+    const column_value* result = nullptr;
+
+    find_in_expression<column_value>(e,
+        [&](const column_value& cval) -> bool {
+            if (result == nullptr) {
+                result = &cval;
+            } else if (result->col != cval.col) {
+                on_internal_error(expr_logger, format("get_the_only_column - more than one column present!: {}", e));
+            }
+
+            return false;
+        }
+    );
+
+    if (result == nullptr) {
+        on_internal_error(expr_logger, format("get_the_only_column - no column_value: {}", e));
+    }
+
+    return *result;
+}
+
 } // namespace expr
 } // namespace cql3

@@ -709,6 +709,11 @@ bool contains_bind_marker(const expression& e);
                                                        data_dictionary::database,
                                                        schema_ptr,
                                                        prepare_context&);
+
+// A single column restriction is a binary operator where LHS is a column or a subscripted column
+bool is_single_column_restriction(const expression&);
+const column_value& get_the_only_column(const expression&);
+
 } // namespace expr
 
 } // namespace cql3
