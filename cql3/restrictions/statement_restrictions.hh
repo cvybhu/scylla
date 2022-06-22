@@ -143,7 +143,7 @@ public:
      * otherwise.
      */
     bool key_is_in_relation() const {
-        return find(_partition_key_restrictions->expression, expr::oper_t::IN);
+        return find(_new_partition_key_restrictions, expr::oper_t::IN);
     }
 
     /**
@@ -178,8 +178,8 @@ public:
         return _uses_secondary_indexing;
     }
 
-    ::shared_ptr<partition_key_restrictions> get_partition_key_restrictions() const {
-        return _partition_key_restrictions;
+    const expr::expression& get_partition_key_restrictions() const {
+        return _new_partition_key_restrictions;
     }
 
     ::shared_ptr<clustering_key_restrictions> get_clustering_columns_restrictions() const {
@@ -187,7 +187,7 @@ public:
     }
 
     bool has_token_restrictions() const {
-        return has_token(_partition_key_restrictions->expression);
+        return has_token(_new_partition_key_restrictions);
     }
 
     // Checks whether the given column has an EQ restriction.
@@ -464,7 +464,7 @@ public:
         // If token restrictions are present in an indexed query, then all other restrictions need to be filtered.
         // A single token restriction can have multiple matching partition key values.
         // Because of this we can't create a clustering prefix with more than token restriction.
-        || (_uses_secondary_indexing && has_token(_partition_key_restrictions->expression));
+        || (_uses_secondary_indexing && has_token(_new_partition_key_restrictions));
     }
 
     /**
