@@ -2425,5 +2425,19 @@ sstring get_columns_in_commons(const expression& a, const expression& b) {
     return str;
 }
 
+single_column_restrictions_map get_single_column_restrictions_map(const expression& e) {
+    single_column_restrictions_map result;
+
+    std::vector<const column_definition*> sorted_defs = get_sorted_column_defs(e);
+    for (const column_definition* cdef : sorted_defs) {
+        expression col_restrictions = conjunction {
+            .children = extract_single_column_restrictions_for_column(e, *cdef)
+        };
+        result.emplace(cdef, std::move(col_restrictions));
+    }
+
+    return result;
+}
+
 } // namespace expr
 } // namespace cql3

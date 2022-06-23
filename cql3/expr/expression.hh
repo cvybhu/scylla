@@ -731,6 +731,10 @@ const column_value& get_the_only_column(const expression&);
 
 sstring get_columns_in_commons(const expression& a, const expression& b);
 
+using single_column_restrictions_map = std::map<const column_definition*, expression, schema_pos_column_definition_comparator>;
+
+single_column_restrictions_map get_single_column_restrictions_map(const expression&);
+
 } // namespace expr
 
 } // namespace cql3
