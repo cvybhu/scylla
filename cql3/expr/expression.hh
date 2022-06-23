@@ -712,7 +712,24 @@ bool contains_bind_marker(const expression& e);
 
 // A single column restriction is a binary operator where LHS is a column or a subscripted column
 bool is_single_column_restriction(const expression&);
+bool is_token_restriction(const binary_operator&);
+bool is_empty_restriction(const expression&);
+
+// A comparator that orders columns by their position in the schema
+// For primary key columns the `id` field is used to determine their position.
+// Other columns are assumed to have position `123456789`.
+// In case the position is the same they are compared by their name.
+struct schema_pos_column_definition_comparator {
+    bool operator()(const column_definition* def1, const column_definition* def2) const;
+};
+
+// Extracts column_defs from the expression and sorts them using schema_pos_column_definition_comparator
+std::vector<const column_definition*> get_sorted_column_defs(const expression&);
+const column_definition* get_last_column_def(const expression&);
+
 const column_value& get_the_only_column(const expression&);
+
+sstring get_columns_in_commons(const expression& a, const expression& b);
 
 } // namespace expr
 

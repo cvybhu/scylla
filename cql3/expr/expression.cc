@@ -2324,6 +2324,10 @@ bool is_single_column_restriction(const expression& e) {
     return result;
 }
 
+bool is_token_restriction(const binary_operator& binop) {
+    return is<token>(binop.lhs);
+}
+
 const column_value& get_the_only_column(const expression& e) {
     if (find_in_expression<unresolved_identifier>(e, [](const auto&) {return true;})) {
         on_internal_error(expr_logger, format("get_the_only_column - expression is not prepared: {}", e));
@@ -2348,6 +2352,77 @@ const column_value& get_the_only_column(const expression& e) {
     }
 
     return *result;
+}
+
+bool schema_pos_column_definition_comparator::operator()(const column_definition *def1, const column_definition *def2) const {
+    auto column_pos = [](const column_definition* cdef) -> uint32_t {
+        if (cdef->is_primary_key()) {
+            return cdef->id;
+        }
+
+        return 123456789;
+    };
+
+    uint32_t pos1 = column_pos(def1);
+    uint32_t pos2 = column_pos(def2);
+    if (pos1 != pos2) {
+        return pos1 < pos2;
+    }
+    // FIXME: shouldn't we use regular column name comparator here? Origin does not...
+    return less_unsigned(def1->name(), def2->name());
+}
+
+std::vector<const column_definition*> get_sorted_column_defs(const expression& e) {
+    std::set<const column_definition*, schema_pos_column_definition_comparator> cols;
+
+    find_in_expression<column_value>(e,
+        [&](const column_value& cval) -> bool {
+            cols.insert(cval.col);
+
+            return false;
+        }
+    );
+
+    std::vector<const column_definition*> result;
+    result.reserve(cols.size());
+    for (const column_definition* col : cols) {
+        result.push_back(col);
+    }
+    return result;
+}
+
+const column_definition* get_last_column_def(const expression& e) {
+    std::vector<const column_definition*> sorted_defs = get_sorted_column_defs(e);
+
+    if (sorted_defs.empty()) {
+        return nullptr;
+    }
+
+    return sorted_defs.back();
+}
+
+bool is_empty_restriction(const expression& e) {
+    // An empty restriction would restrict at least a single column
+    return find_in_expression<column_value>(e, [](const auto&) {return true;}) == nullptr;
+}
+
+sstring get_columns_in_commons(const expression& a, const expression& b) {
+    std::vector<const column_definition*> ours = get_sorted_column_defs(a);
+    std::vector<const column_definition*> theirs = get_sorted_column_defs(b);
+
+    std::sort(ours.begin(), ours.end());
+    std::sort(theirs.begin(), theirs.end());
+    std::vector<const column_definition*> common;
+    std::set_intersection(ours.begin(), ours.end(), theirs.begin(), theirs.end(), std::back_inserter(common));
+
+    sstring str;
+    for (auto&& c : common) {
+        if (!str.empty()) {
+            str += " ,";
+        }
+        str += c->name_as_text();
+    }
+    return str;
 }
 
 } // namespace expr
