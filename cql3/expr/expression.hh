@@ -735,6 +735,10 @@ using single_column_restrictions_map = std::map<const column_definition*, expres
 
 single_column_restrictions_map get_single_column_restrictions_map(const expression&);
 
+// Finds the value of the given column in the expression
+// In case of multpiple possible values calls on_internal_error
+bytes_opt value_for(const column_definition&, const expression&, const query_options&);
+
 } // namespace expr
 
 } // namespace cql3
