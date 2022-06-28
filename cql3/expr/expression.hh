@@ -739,6 +739,7 @@ single_column_restrictions_map get_single_column_restrictions_map(const expressi
 // In case of multpiple possible values calls on_internal_error
 bytes_opt value_for(const column_definition&, const expression&, const query_options&);
 
+bool contains_multi_column_restriction(const expression&);
 } // namespace expr
 
 } // namespace cql3
