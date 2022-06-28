@@ -263,11 +263,11 @@ private:
      * @param kind the column type
      * @return the <code>restrictions</code> for the specified type of columns
      */
-    ::shared_ptr<restrictions> get_restrictions(column_kind kind) const {
+    const expr::expression& get_restrictions(column_kind kind) const {
         switch (kind) {
-        case column_kind::partition_key: return _partition_key_restrictions;
-        case column_kind::clustering_key: return _clustering_columns_restrictions;
-        default: return _nonprimary_key_restrictions;
+        case column_kind::partition_key: return _new_partition_key_restrictions;
+        case column_kind::clustering_key: return _new_clustering_columns_restrictions;
+        default: return _new_nonprimary_key_restrictions;
         }
     }
 
@@ -477,7 +477,7 @@ public:
             return true;
         }
 
-        auto&& restricted = get_restrictions(cdef->kind).get()->get_column_defs();
+        auto restricted = expr::get_sorted_column_defs(get_restrictions(cdef->kind));
         return std::find(restricted.begin(), restricted.end(), cdef) != restricted.end();
     }
 
