@@ -364,6 +364,7 @@ set(scylla_sources
     cql3/query_options.cc
     cql3/query_processor.cc
     cql3/restrictions/statement_restrictions.cc
+    cql3/restrictions/plan.cc
     cql3/result_set.cc
     cql3/role_name.cc
     cql3/selection/abstract_function_selector.cc

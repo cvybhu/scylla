@@ -1490,6 +1490,34 @@ opt_bound make_prefix_bound(
             prefix_len >= whole_bound.size() && whole_bound_is_inclusive);
 }
 
+
+
+/// Extracts raw multi-column bounds from exprs; last one wins.
+query::clustering_range range_from_raw_bounds(
+        const std::vector<expression>& exprs, const query_options& options, const schema& schema) {
+    opt_bound lb, ub;
+    for (const auto& e : exprs) {
+        if (auto b = find_clustering_order(e)) {
+            cql3::raw_value tup_val = expr::evaluate(b->rhs, options);
+            if (tup_val.is_null()) {
+                on_internal_error(rlogger, format("range_from_raw_bounds: unexpected atom {}", *b));
+            }
+
+            const auto r = to_range(
+                    b->op, clustering_key_prefix::from_optional_exploded(schema, expr::get_tuple_elements(tup_val, *type_of(b->rhs))));
+            if (r.start()) {
+                lb = r.start();
+            }
+            if (r.end()) {
+                ub = r.end();
+            }
+        }
+    }
+    return {lb, ub};
+}
+
+} // anonymous namespace
+
 /// Given a multi-column range in CQL order, breaks it into an equivalent union of clustering-order ranges.  Returns
 /// those ranges as vector elements.
 ///
@@ -1579,32 +1607,6 @@ std::vector<query::clustering_range> get_equivalent_ranges(
 
     return ranges;
 }
-
-/// Extracts raw multi-column bounds from exprs; last one wins.
-query::clustering_range range_from_raw_bounds(
-        const std::vector<expression>& exprs, const query_options& options, const schema& schema) {
-    opt_bound lb, ub;
-    for (const auto& e : exprs) {
-        if (auto b = find_clustering_order(e)) {
-            cql3::raw_value tup_val = expr::evaluate(b->rhs, options);
-            if (tup_val.is_null()) {
-                on_internal_error(rlogger, format("range_from_raw_bounds: unexpected atom {}", *b));
-            }
-
-            const auto r = to_range(
-                    b->op, clustering_key_prefix::from_optional_exploded(schema, expr::get_tuple_elements(tup_val, *type_of(b->rhs))));
-            if (r.start()) {
-                lb = r.start();
-            }
-            if (r.end()) {
-                ub = r.end();
-            }
-        }
-    }
-    return {lb, ub};
-}
-
-} // anonymous namespace
 
 std::vector<query::clustering_range> statement_restrictions::get_clustering_bounds(const query_options& options) const {
     if (_clustering_prefix_restrictions.empty()) {

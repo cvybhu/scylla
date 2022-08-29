@@ -503,10 +503,6 @@ struct intersection_visitor {
     }
 };
 
-value_set intersection(value_set a, value_set b, const abstract_type* type) {
-    return std::visit(intersection_visitor{type}, std::move(a), std::move(b));
-}
-
 bool is_satisfied_by(const binary_operator& opr, const evaluation_inputs& inputs) {
     return expr::visit(overloaded_functor{
             [&] (const column_value& col) {
@@ -610,6 +606,10 @@ bool is_satisfied_by(const binary_operator& opr, const evaluation_inputs& inputs
 }
 
 } // anonymous namespace
+
+value_set intersection(value_set a, value_set b, const abstract_type* type) {
+    return std::visit(intersection_visitor{type}, std::move(a), std::move(b));
+}
 
 bool is_satisfied_by(const expression& restr, const evaluation_inputs& inputs) {
     return expr::visit(overloaded_functor{

@@ -240,6 +240,18 @@ public:
      * @return <code>true</code> if the clustering key has some unrestricted components, <code>false</code> otherwise.
      */
     bool has_unrestricted_clustering_columns() const;
+
+    const schema_ptr& get_schema() const {
+        return _schema;
+    }
+
+    const expr::expression& get_where_clause() const {
+        static expr::expression empty_expression = expr::conjunction{};
+        if (_where.has_value()) {
+            return *_where;
+        }
+        return empty_expression;
+    }
 private:
     void add_restriction(const expr::binary_operator& restr, schema_ptr schema, bool allow_filtering, bool for_view);
     void add_is_not_restriction(const expr::binary_operator& restr, schema_ptr schema, bool for_view);
@@ -529,6 +541,8 @@ public:
     bool range_or_slice_eq_null(const query_options& options) const;
 };
 
+std::vector<query::clustering_range> get_equivalent_ranges(
+        const query::clustering_range& cql_order_range, const schema& schema);
 }
 
 }
