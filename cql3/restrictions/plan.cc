@@ -1261,5 +1261,146 @@ nonwrapping_range<managed_bytes> range_conditions::get_value_set(const query_opt
     return std::move(*result);
 }
 
+planned_query query_from_statement_restrictions(const restrictions::statement_restrictions&) {
+    throw std::runtime_error("unimplemented!");
+}
 }  // namespace plan
+
+namespace restrictions {
+refactor_restrictions::refactor_restrictions(new_restrictions single_table_plan)
+    : restrictions(std::move(single_table_plan)) {}
+refactor_restrictions::refactor_restrictions(old_restrictions old_restrictions) {
+    throw std::runtime_error("unimplemented!");
+}
+
+dht::partition_range_vector refactor_restrictions::get_partition_key_ranges(const query_options& options) const {
+    throw std::runtime_error("unimplemented!");
+}
+std::vector<query::clustering_range> refactor_restrictions::get_clustering_bounds(const query_options& options) const {
+    throw std::runtime_error("unimplemented!");
+}
+
+const expr::expression& refactor_restrictions::get_partition_key_restrictions() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+const expr::expression& refactor_restrictions::get_clustering_columns_restrictions() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+const expr::single_column_restrictions_map& refactor_restrictions::get_non_pk_restriction() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::has_partition_key_unrestricted_components() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::has_token_restrictions() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+std::vector<query::clustering_range> refactor_restrictions::get_global_index_clustering_ranges(
+    const query_options& options,
+    const schema& idx_tbl_schema) const {
+    throw std::runtime_error("unimplemented!");
+}
+
+/// Calculates clustering ranges for querying a global-index table for queries with token restrictions present.
+std::vector<query::clustering_range> refactor_restrictions::get_global_index_token_clustering_ranges(
+    const query_options& options,
+    const schema& idx_tbl_schema) const {
+    throw std::runtime_error("unimplemented!");
+}
+
+std::vector<query::clustering_range> refactor_restrictions::get_local_index_clustering_ranges(
+    const query_options& options,
+    const schema& idx_tbl_schema) const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::need_filtering() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::uses_secondary_indexing() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::has_non_primary_key_restriction() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::has_clustering_columns_restriction() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::is_key_range() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+std::vector<const column_definition*> refactor_restrictions::get_column_defs_for_filtering(
+    data_dictionary::database db) const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::partition_key_restrictions_is_empty() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::partition_key_restrictions_is_all_eq() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::key_is_in_relation() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+/// Prepares internal data for evaluating index-table queries.  Must be called before
+/// get_local_index_clustering_ranges().
+void refactor_restrictions::prepare_indexed_local(const schema& idx_tbl_schema) {
+    throw std::runtime_error("unimplemented!");
+}
+
+/// Prepares internal data for evaluating index-table queries.  Must be called before
+/// get_global_index_clustering_ranges() or get_global_index_token_clustering_ranges().
+void refactor_restrictions::prepare_indexed_global(const schema& idx_tbl_schema) {
+    throw std::runtime_error("unimplemented!");
+}
+
+std::pair<std::optional<secondary_index::index>, expr::expression> refactor_restrictions::find_idx(
+    const secondary_index::secondary_index_manager& sim) const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::has_eq_restriction_on_column(const column_definition& column) const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::pk_restrictions_need_filtering() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::ck_restrictions_need_filtering() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+const expr::single_column_restrictions_map& refactor_restrictions::get_single_column_partition_key_restrictions()
+    const {
+    throw std::runtime_error("unimplemented!");
+}
+
+const expr::single_column_restrictions_map& refactor_restrictions::get_single_column_clustering_key_restrictions()
+    const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::has_unrestricted_clustering_columns() const {
+    throw std::runtime_error("unimplemented!");
+}
+
+bool refactor_restrictions::is_restricted(const column_definition* cdef) const {
+    throw std::runtime_error("unimplemented!");
+}
+}  // namespace restrictions
 }  // namespace cql3

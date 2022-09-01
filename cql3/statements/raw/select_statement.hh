@@ -25,6 +25,7 @@ namespace selection {
 
 namespace restrictions {
     class statement_restrictions;
+    class refactor_restrictions;
 } // namespace restrictions
 
 namespace statements {
@@ -115,14 +116,14 @@ private:
     std::optional<expr::expression> prepare_limit(data_dictionary::database db, prepare_context& ctx, const std::optional<expr::expression>& limit);
 
     // Checks whether it is legal to have ORDER BY in this statement
-    static void verify_ordering_is_allowed(const restrictions::statement_restrictions& restrictions);
+    static void verify_ordering_is_allowed(const restrictions::refactor_restrictions& restrictions);
 
     void handle_unrecognized_ordering_column(const column_identifier& column) const;
 
     // Processes ORDER BY column orderings, converts column_identifiers to column_defintions
     prepared_orderings_type prepare_orderings(const schema& schema) const;
 
-    void verify_ordering_is_valid(const prepared_orderings_type&, const schema&, const restrictions::statement_restrictions& restrictions) const;
+    void verify_ordering_is_valid(const prepared_orderings_type&, const schema&, const restrictions::refactor_restrictions& restrictions) const;
 
     // Checks whether this ordering reverses all results.
     // We only allow leaving select results unchanged or reversing them.
@@ -131,21 +132,21 @@ private:
     select_statement::ordering_comparator_type get_ordering_comparator(
         const prepared_orderings_type&,
         selection::selection& selection,
-        const restrictions::statement_restrictions& restrictions);
+        const restrictions::refactor_restrictions& restrictions);
 
     static void validate_distinct_selection(const schema& schema,
         const selection::selection& selection,
-        const restrictions::statement_restrictions& restrictions);
+        const restrictions::refactor_restrictions& restrictions);
 
     /** If ALLOW FILTERING was not specified, this verifies that it is not needed */
     void check_needs_filtering(
-            const restrictions::statement_restrictions& restrictions,
+            const restrictions::refactor_restrictions& restrictions,
             db::tri_mode_restriction_t::mode strict_allow_filtering,
             std::vector<sstring>& warnings);
 
     void ensure_filtering_columns_retrieval(data_dictionary::database db,
                                             selection::selection& selection,
-                                            const restrictions::statement_restrictions& restrictions);
+                                            const restrictions::refactor_restrictions& restrictions);
 
     /// Returns indices of GROUP BY cells in fetched rows.
     std::vector<size_t> prepare_group_by(const schema& schema, selection::selection& selection) const;

@@ -19,6 +19,7 @@
 #include "cql3/result_set.hh"
 #include "cql3/query_options.hh"
 #include "cql3/restrictions/statement_restrictions.hh"
+#include "cql3/restrictions/plan.hh"
 
 namespace cql3 {
 
@@ -400,7 +401,7 @@ std::unique_ptr<result_set> result_set_builder::build() {
     return std::move(_result_set);
 }
 
-result_set_builder::restrictions_filter::restrictions_filter(::shared_ptr<const restrictions::statement_restrictions> restrictions,
+result_set_builder::restrictions_filter::restrictions_filter(::shared_ptr<const restrictions::refactor_restrictions> restrictions,
         const query_options& options,
         uint64_t remaining,
         schema_ptr schema,

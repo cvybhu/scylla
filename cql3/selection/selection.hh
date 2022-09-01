@@ -18,6 +18,7 @@
 #include "exceptions/exceptions.hh"
 #include "unimplemented.hh"
 #include <seastar/core/thread.hh>
+#include "cql3/restrictions/plan.hh"
 
 namespace cql3 {
 
@@ -215,7 +216,7 @@ public:
         }
     };
     class restrictions_filter {
-        const ::shared_ptr<const restrictions::statement_restrictions> _restrictions;
+        const ::shared_ptr<const restrictions::refactor_restrictions> _restrictions;
         const query_options& _options;
         const bool _skip_pk_restrictions;
         const bool _skip_ck_restrictions;
@@ -230,7 +231,7 @@ public:
         mutable std::optional<partition_key> _last_pkey;
         mutable bool _is_first_partition_on_page = true;
     public:
-        explicit restrictions_filter(::shared_ptr<const restrictions::statement_restrictions> restrictions,
+        explicit restrictions_filter(::shared_ptr<const restrictions::refactor_restrictions> restrictions,
                 const query_options& options,
                 uint64_t remaining,
                 schema_ptr schema,
