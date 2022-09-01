@@ -704,24 +704,31 @@ single_table_query single_table_query_from_restrictions(const restrictions::stat
 
     split_where_clause split_where = get_split_where_clause(restrictions.get_where_clause());
 
-    schema_ptr table_schema;
+    schema_ptr table_schema = restrictions.get_schema();
     auto [partition_condition, partition_filter] =
         partition_condition_from_restrictions(split_where.partition_key_restrictions, *table_schema);
+
     auto [clustering_condition, clustering_filter] =
         clustering_condition_from_restrictions(split_where.clustering_key_restrictions, *table_schema);
 
     std::optional<filter> other_filter;
     if (!expr::is_empty_restriction(split_where.other_restrictions)) {
-        other_filter = filter{.filter_expr = std::move(split_where.other_restrictions)};
+        other_filter = filter{.filter_expr = split_where.other_restrictions};
     }
 
     return single_table_query{
-
         .table_schema = std::move(table_schema),
+        .where = restrictions.get_where_clause(),
+        .partition_key_restrictions = split_where.partition_key_restrictions,
+        .partition_key_restrictions_map = get_single_column_restrictions_map(split_where.partition_key_restrictions),
         .partition_condition = std::move(partition_condition),
         .partition_filter = std::move(partition_filter),
+        .clustering_key_restrictions = split_where.clustering_key_restrictions,
+        .clustering_key_restrictions_map = get_single_column_restrictions_map(split_where.clustering_key_restrictions),
         .clustering_condition = std::move(clustering_condition),
         .clustering_filter = std::move(clustering_filter),
+        .nonprimary_key_restrictions = split_where.other_restrictions,
+        .nonprimary_key_restrictions_map = get_single_column_restrictions_map(split_where.other_restrictions),
         .other_filter = std::move(other_filter)};
 }
 
@@ -1261,146 +1268,353 @@ nonwrapping_range<managed_bytes> range_conditions::get_value_set(const query_opt
     return std::move(*result);
 }
 
-planned_query query_from_statement_restrictions(const restrictions::statement_restrictions&) {
-    throw std::runtime_error("unimplemented!");
+planned_query query_from_statement_restrictions(const restrictions::statement_restrictions& stmt_restrictions) {
+    if (stmt_restrictions.uses_secondary_indexing()) {
+        throw std::runtime_error("planned_query_from_statement_restrictions handles only non-index queries");
+    }
+
+    return single_table_query_from_restrictions(stmt_restrictions);
 }
 }  // namespace plan
 
 namespace restrictions {
 refactor_restrictions::refactor_restrictions(new_restrictions single_table_plan)
     : restrictions(std::move(single_table_plan)) {}
-refactor_restrictions::refactor_restrictions(old_restrictions old_restrictions) {
-    throw std::runtime_error("unimplemented!");
-}
+
+refactor_restrictions::refactor_restrictions(old_restrictions old_restrs) : restrictions(std::move(old_restrs)) {}
 
 dht::partition_range_vector refactor_restrictions::get_partition_key_ranges(const query_options& options) const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) { return new_restrs.get_partition_key_ranges(options); },
+            [&](const old_restrictions& old_restrs) { return old_restrs->get_partition_key_ranges(options); }},
+        restrictions);
 }
 std::vector<query::clustering_range> refactor_restrictions::get_clustering_bounds(const query_options& options) const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) { return new_restrs.get_clustering_bounds(options); },
+            [&](const old_restrictions& old_restrs) { return old_restrs->get_clustering_bounds(options); }},
+        restrictions);
 }
 
 const expr::expression& refactor_restrictions::get_partition_key_restrictions() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) { return new_restrs.partition_key_restrictions; },
+            [&](const old_restrictions& old_restrs) { return old_restrs->get_partition_key_restrictions(); }},
+        restrictions);
 }
 
 const expr::expression& refactor_restrictions::get_clustering_columns_restrictions() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) { return new_restrs.clustering_key_restrictions; },
+            [&](const old_restrictions& old_restrs) { return old_restrs->get_clustering_columns_restrictions(); }},
+        restrictions);
 }
 
 const expr::single_column_restrictions_map& refactor_restrictions::get_non_pk_restriction() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) { return new_restrs.nonprimary_key_restrictions_map; },
+            [&](const old_restrictions& old_restrs) { return old_restrs->get_non_pk_restriction(); }},
+        restrictions);
 }
 
 bool refactor_restrictions::has_partition_key_unrestricted_components() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{[&](const new_restrictions& new_restrs) {
+                               return !std::holds_alternative<plan::no_condition>(new_restrs.partition_condition);
+                           },
+                           [&](const old_restrictions& old_restrs) {
+                               return old_restrs->has_partition_key_unrestricted_components();
+                           }},
+        restrictions);
 }
 
 bool refactor_restrictions::has_token_restrictions() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) { return has_token(new_restrs.partition_key_restrictions); },
+            [&](const old_restrictions& old_restrs) { return old_restrs->has_token_restrictions(); }},
+        restrictions);
 }
 
 std::vector<query::clustering_range> refactor_restrictions::get_global_index_clustering_ranges(
     const query_options& options,
     const schema& idx_tbl_schema) const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{[&](const new_restrictions& new_restrs) -> std::vector<query::clustering_range> {
+                               throw std::runtime_error(
+                                   "get_global_index_clustering_ranges not implemented for new_restrictions");
+                           },
+                           [&](const old_restrictions& old_restrs) -> std::vector<query::clustering_range> {
+                               return old_restrs->get_global_index_clustering_ranges(options, idx_tbl_schema);
+                           }},
+        restrictions);
 }
 
 /// Calculates clustering ranges for querying a global-index table for queries with token restrictions present.
 std::vector<query::clustering_range> refactor_restrictions::get_global_index_token_clustering_ranges(
     const query_options& options,
     const schema& idx_tbl_schema) const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{[&](const new_restrictions& new_restrs) -> std::vector<query::clustering_range> {
+                               throw std::runtime_error(
+                                   "get_global_index_token_clustering_ranges not implemented for new_restrictions");
+                           },
+                           [&](const old_restrictions& old_restrs) -> std::vector<query::clustering_range> {
+                               return old_restrs->get_global_index_token_clustering_ranges(options, idx_tbl_schema);
+                           }},
+        restrictions);
 }
 
 std::vector<query::clustering_range> refactor_restrictions::get_local_index_clustering_ranges(
     const query_options& options,
     const schema& idx_tbl_schema) const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{[&](const new_restrictions& new_restrs) -> std::vector<query::clustering_range> {
+                               throw std::runtime_error(
+                                   "get_local_index_clustering_ranges not implemented for new_restrictions");
+                           },
+                           [&](const old_restrictions& old_restrs) -> std::vector<query::clustering_range> {
+                               return old_restrs->get_local_index_clustering_ranges(options, idx_tbl_schema);
+                           }},
+        restrictions);
 }
 
 bool refactor_restrictions::need_filtering() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{[&](const new_restrictions& new_restrs) {
+                               return new_restrs.partition_filter.has_value() ||
+                                      new_restrs.clustering_filter.has_value() || new_restrs.other_filter.has_value();
+                           },
+                           [&](const old_restrictions& old_restrs) { return old_restrs->need_filtering(); }},
+        restrictions);
 }
 
 bool refactor_restrictions::uses_secondary_indexing() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{[&](const new_restrictions& new_restrs) { return false; },
+                           [&](const old_restrictions& old_restrs) { return old_restrs->uses_secondary_indexing(); }},
+        restrictions);
 }
 
 bool refactor_restrictions::has_non_primary_key_restriction() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) { return new_restrs.other_filter.has_value(); },
+            [&](const old_restrictions& old_restrs) { return old_restrs->has_non_primary_key_restriction(); }},
+        restrictions);
 }
 
 bool refactor_restrictions::has_clustering_columns_restriction() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(overloaded_functor{[&](const new_restrictions& new_restrs) {
+                                             return !is_empty_restriction(new_restrs.clustering_key_restrictions);
+                                         },
+                                         [&](const old_restrictions& old_restrs) {
+                                             return old_restrs->has_clustering_columns_restriction();
+                                         }},
+                      restrictions);
 }
 
 bool refactor_restrictions::is_key_range() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{[&](const new_restrictions& new_restrs) {
+                               return std::visit(overloaded_functor{
+                                                     [](const plan::no_condition&) { return true; },
+                                                     [](const plan::column_value_lists&) { return false; },
+                                                     [](const plan::token_value_list&) { return false; },
+                                                     [](const plan::token_range&) { return true; },
+                                                 },
+                                                 new_restrs.partition_condition);
+                           },
+                           [&](const old_restrictions& old_restrs) { return old_restrs->is_key_range(); }},
+        restrictions);
 }
 
 std::vector<const column_definition*> refactor_restrictions::get_column_defs_for_filtering(
     data_dictionary::database db) const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) -> std::vector<const column_definition*> {
+                std::set<const column_definition*, schema_pos_column_definition_comparator> pk_columns_for_filtering;
+                std::set<const column_definition*, schema_pos_column_definition_comparator> ck_columns_for_filtering;
+                std::set<const column_definition*, schema_pos_column_definition_comparator> other_columns_for_filtering;
+
+                if (new_restrs.partition_filter.has_value()) {
+                    for_each_expression<column_value>(
+                        new_restrs.partition_filter->filter_expr,
+                        [&](const column_value& cval) { pk_columns_for_filtering.insert(cval.col); });
+                }
+
+                if (new_restrs.clustering_filter.has_value()) {
+                    for_each_expression<column_value>(
+                        new_restrs.clustering_filter->filter_expr,
+                        [&](const column_value& cval) { ck_columns_for_filtering.insert(cval.col); });
+                }
+
+                if (new_restrs.other_filter.has_value()) {
+                    for_each_expression<column_value>(
+                        new_restrs.other_filter->filter_expr,
+                        [&](const column_value& cval) { other_columns_for_filtering.insert(cval.col); });
+                }
+
+                std::vector<const column_definition*> result;
+                for (const column_definition* cdef : pk_columns_for_filtering) {
+                    result.push_back(cdef);
+                }
+                for (const column_definition* cdef : ck_columns_for_filtering) {
+                    result.push_back(cdef);
+                }
+                for (const column_definition* cdef : other_columns_for_filtering) {
+                    result.push_back(cdef);
+                }
+                return result;
+            },
+            [&](const old_restrictions& old_restrs) -> std::vector<const column_definition*> {
+                return old_restrs->get_column_defs_for_filtering(db);
+            }},
+        restrictions);
 }
 
 bool refactor_restrictions::partition_key_restrictions_is_empty() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) {
+                return std::holds_alternative<plan::no_condition>(new_restrs.partition_condition) &&
+                       !new_restrs.partition_filter.has_value();
+            },
+            [&](const old_restrictions& old_restrs) { return old_restrs->partition_key_restrictions_is_empty(); }},
+        restrictions);
 }
 
 bool refactor_restrictions::partition_key_restrictions_is_all_eq() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) {
+                return std::holds_alternative<plan::column_value_lists>(new_restrs.partition_condition) &&
+                       !new_restrs.partition_filter.has_value();
+            },
+            [&](const old_restrictions& old_restrs) { return old_restrs->partition_key_restrictions_is_all_eq(); }},
+        restrictions);
 }
 
 bool refactor_restrictions::key_is_in_relation() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) {
+                return find(new_restrs.partition_key_restrictions, expr::oper_t::IN) != nullptr;
+            },
+            [&](const old_restrictions& old_restrs) { return old_restrs->partition_key_restrictions_is_all_eq(); }},
+        restrictions);
 }
 
 /// Prepares internal data for evaluating index-table queries.  Must be called before
 /// get_local_index_clustering_ranges().
 void refactor_restrictions::prepare_indexed_local(const schema& idx_tbl_schema) {
-    throw std::runtime_error("unimplemented!");
+    std::visit(
+        overloaded_functor{[&](new_restrictions& new_restrs) {
+                               throw std::runtime_error("prepare_indexed_local not implemented for new_restrictions");
+                           },
+                           [&](old_restrictions& old_restrs) { old_restrs->prepare_indexed_local(idx_tbl_schema); }},
+        restrictions);
 }
 
 /// Prepares internal data for evaluating index-table queries.  Must be called before
 /// get_global_index_clustering_ranges() or get_global_index_token_clustering_ranges().
 void refactor_restrictions::prepare_indexed_global(const schema& idx_tbl_schema) {
-    throw std::runtime_error("unimplemented!");
+    std::visit(
+        overloaded_functor{[&](new_restrictions& new_restrs) {
+                               throw std::runtime_error("prepare_indexed_global not implemented for new_restrictions");
+                           },
+                           [&](old_restrictions& old_restrs) { old_restrs->prepare_indexed_global(idx_tbl_schema); }},
+        restrictions);
 }
 
 std::pair<std::optional<secondary_index::index>, expr::expression> refactor_restrictions::find_idx(
     const secondary_index::secondary_index_manager& sim) const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](new_restrictions& new_restrs) -> std::pair<std::optional<secondary_index::index>, expr::expression> {
+                throw std::runtime_error("find_idx not implemented for new_restrictions");
+            },
+            [&](old_restrictions& old_restrs) -> std::pair<std::optional<secondary_index::index>, expr::expression> {
+                return old_restrs->find_idx(sim);
+            }},
+        restrictions);
 }
 
 bool refactor_restrictions::has_eq_restriction_on_column(const column_definition& column) const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(overloaded_functor{[&](const new_restrictions& new_restrs) {
+                                             return expr::has_eq_restriction_on_column(column, new_restrs.where);
+                                         },
+                                         [&](const old_restrictions& old_restrs) {
+                                             return old_restrs->has_eq_restriction_on_column(column);
+                                         }},
+                      restrictions);
 }
 
 bool refactor_restrictions::pk_restrictions_need_filtering() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) { return !new_restrs.partition_filter.has_value(); },
+            [&](const old_restrictions& old_restrs) { return old_restrs->pk_restrictions_need_filtering(); }},
+        restrictions);
 }
 
 bool refactor_restrictions::ck_restrictions_need_filtering() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) { return !new_restrs.clustering_filter.has_value(); },
+            [&](const old_restrictions& old_restrs) { return old_restrs->ck_restrictions_need_filtering(); }},
+        restrictions);
 }
 
 const expr::single_column_restrictions_map& refactor_restrictions::get_single_column_partition_key_restrictions()
     const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(overloaded_functor{
+                          [&](const new_restrictions& new_restrs) { return new_restrs.partition_key_restrictions_map; },
+                          [&](const old_restrictions& old_restrs) {
+                              return old_restrs->get_single_column_partition_key_restrictions();
+                          }},
+                      restrictions);
 }
 
 const expr::single_column_restrictions_map& refactor_restrictions::get_single_column_clustering_key_restrictions()
     const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(overloaded_functor{[&](const new_restrictions& new_restrs) {
+                                             return new_restrs.clustering_key_restrictions_map;
+                                         },
+                                         [&](const old_restrictions& old_restrs) {
+                                             return old_restrs->get_single_column_clustering_key_restrictions();
+                                         }},
+                      restrictions);
 }
 
 bool refactor_restrictions::has_unrestricted_clustering_columns() const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{
+            [&](const new_restrictions& new_restrs) {
+                std::set<const column_definition*> cdefs;
+                for_each_expression<column_value>(new_restrs.clustering_key_restrictions,
+                                                  [&](const column_value& cval) { cdefs.insert(cval.col); });
+                return cdefs.size() < new_restrs.table_schema->clustering_key_size();
+            },
+            [&](const old_restrictions& old_restrs) { return old_restrs->has_unrestricted_clustering_columns(); }},
+        restrictions);
 }
 
 bool refactor_restrictions::is_restricted(const column_definition* cdef) const {
-    throw std::runtime_error("unimplemented!");
+    return std::visit(
+        overloaded_functor{[&](const new_restrictions& new_restrs) {
+                               return find_in_expression<column_value>(new_restrs.where, [&](const column_value& cval) {
+                                          return cval.col == cdef;
+                                      }) != nullptr;
+                           },
+                           [&](const old_restrictions& old_restrs) { return old_restrs->is_restricted(cdef); }},
+        restrictions);
 }
 }  // namespace restrictions
 }  // namespace cql3

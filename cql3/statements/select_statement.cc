@@ -1649,7 +1649,7 @@ std::unique_ptr<prepared_statement> select_statement::prepare(data_dictionary::d
                      ? selection::selection::wildcard(schema)
                      : selection::selection::from_selectors(db, schema, _select_clause);
 
-    ::shared_ptr<const restrictions::statement_restrictions> stmt_restrictions =
+    ::shared_ptr<restrictions::statement_restrictions> stmt_restrictions =
         prepare_restrictions(db, schema, ctx, selection, for_view, _parameters->allow_filtering());
 
     ::shared_ptr<restrictions::refactor_restrictions> restrictions = ::make_shared<restrictions::refactor_restrictions>(stmt_restrictions);

@@ -85,12 +85,21 @@ using clustering_key_condition = std::variant<no_condition,
 struct single_table_query {
     schema_ptr table_schema;
 
+    expr::expression where;
+    expr::expression partition_key_restrictions;
+    expr::single_column_restrictions_map partition_key_restrictions_map;
+
     partition_key_condition partition_condition;
     std::optional<filter> partition_filter;
+
+    expr::expression clustering_key_restrictions;
+    expr::single_column_restrictions_map clustering_key_restrictions_map;
 
     clustering_key_condition clustering_condition;
     std::optional<filter> clustering_filter;
 
+    expr::expression nonprimary_key_restrictions;
+    expr::single_column_restrictions_map nonprimary_key_restrictions_map;
     std::optional<filter> other_filter;
 
     dht::partition_range_vector get_partition_key_ranges(const query_options& options) const;
@@ -115,7 +124,7 @@ planned_query query_from_statement_restrictions(const restrictions::statement_re
 namespace restrictions {
 class refactor_restrictions {
    public:
-    using old_restrictions = const ::shared_ptr<const restrictions::statement_restrictions>;
+    using old_restrictions = const ::shared_ptr<restrictions::statement_restrictions>;
     using new_restrictions = const plan::single_table_query;
     std::variant<old_restrictions, new_restrictions> restrictions;
 
