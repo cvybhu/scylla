@@ -527,6 +527,9 @@ bool is_satisfied_by(const binary_operator& opr, const evaluation_inputs& inputs
                     return like(col, val.view(), inputs);
                 } else if (opr.op == oper_t::IN) {
                     return is_one_of(col, opr.rhs, inputs);
+                } else if (opr.op == oper_t::IS_NOT && evaluate(opr.rhs, inputs).is_null()) {
+                    cql3::raw_value val = evaluate(opr.lhs, inputs);
+                    return !val.is_null();
                 } else {
                     throw exceptions::unsupported_operation_exception(format("Unhandled binary_operator: {}", opr));
                 }
@@ -546,6 +549,9 @@ bool is_satisfied_by(const binary_operator& opr, const evaluation_inputs& inputs
                     throw exceptions::unsupported_operation_exception("LIKE lhs is subscripted");
                 } else if (opr.op == oper_t::IN) {
                     return is_one_of(sub, opr.rhs, inputs);
+                } else if (opr.op == oper_t::IS_NOT && evaluate(opr.rhs, inputs).is_null()) {
+                    cql3::raw_value val = evaluate(opr.lhs, inputs);
+                    return !val.is_null();
                 } else {
                     throw exceptions::unsupported_operation_exception(format("Unhandled binary_operator: {}", opr));
                 }
