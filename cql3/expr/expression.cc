@@ -1720,8 +1720,9 @@ std::optional<bool> get_bool_value(const constant& constant_val) {
 
 cql3::raw_value evaluate(const expression& e, const evaluation_inputs& inputs) {
     return expr::visit(overloaded_functor {
-        [](const binary_operator&) -> cql3::raw_value {
-            on_internal_error(expr_logger, "Can't evaluate a binary_operator");
+        [&](const binary_operator& binop) -> cql3::raw_value {
+            bool binop_result = is_satisfied_by(binop, inputs);
+            return cql3::raw_value::make_value(boolean_type->decompose(binop_result));
         },
         [](const conjunction&) -> cql3::raw_value {
             on_internal_error(expr_logger, "Can't evaluate a conjunction");
