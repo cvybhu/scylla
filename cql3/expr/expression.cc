@@ -2528,6 +2528,68 @@ bool has_only_eq_binops(const expression& e) {
     return non_eq_binop == nullptr;
 }
 
+bool is_token_function(const function_call& fun_call) {
+    static const functions::function_name TOKEN_FUNCTION_NAME = functions::function_name::native_function("token");
+
+    // Check that function name is "token"
+    const functions::function_name& fun_name =
+        std::visit(overloaded_functor{[](const functions::function_name& fname) { return fname; },
+                                      [](const shared_ptr<functions::function>& fun) { return fun->name(); }},
+                   fun_call.func);
+
+    return fun_name == TOKEN_FUNCTION_NAME;
+}
+
+bool is_token_function(const expression& e) {
+    const function_call* fun_call = as_if<function_call>(&e);
+    if (fun_call == nullptr) {
+        return false;
+    }
+
+    return is_token_function(*fun_call);
+}
+
+bool is_partition_token(const function_call& fun_call) {
+    if (!is_token_function(fun_call)) {
+        return false;
+    }
+
+    // Check that the arguments are consecutive partition key columns.
+    // The arguments have been validated elsewhere, so we can be sure
+    // that their number and types are correct.
+    for (std::size_t arg_idx = 0; arg_idx < fun_call.args.size(); arg_idx++) {
+        const column_value* cur_col = as_if<column_value>(&fun_call.args[arg_idx]);
+        if (cur_col == nullptr) {
+            // A sanity check that we didn't call the function on an unprepared expression.
+            if (is<unresolved_identifier>(fun_call.args[arg_idx])) {
+                on_internal_error(expr_logger,
+                                  format("called is_partition_token with unprepared expression: {}", fun_call));
+            }
+
+            return false;
+        }
+
+        if (!cur_col->col->is_partition_key()) {
+            return false;
+        }
+
+        if (cur_col->col->position() != arg_idx) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool is_partition_token(const expression& e) {
+    const function_call* fun_call = as_if<function_call>(&e);
+    if (fun_call == nullptr) {
+        return false;
+    }
+
+    return is_partition_token(*fun_call);
+}
+
 unset_bind_variable_guard::unset_bind_variable_guard(const expr::expression& e) {
     if (auto bv = expr::as_if<expr::bind_variable>(&e)) {
         _var = *bv;

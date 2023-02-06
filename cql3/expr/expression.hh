@@ -809,6 +809,23 @@ bytes_opt value_for(const column_definition&, const expression&, const query_opt
 bool contains_multi_column_restriction(const expression&);
 
 bool has_only_eq_binops(const expression&);
+
+// Checks if the given expression describes
+// a call to the token() function.
+bool is_token_function(const function_call&);
+bool is_token_function(const expression&);
+
+// Checks if the given expression describes the partition key token.
+// For a schema with partition key columns: 'p1', 'p2', 'p3'
+// the only expression it accepts is: 'token(p1, p2, p3)'.
+// It will reject other calls to 'token()', for example:
+// 'token(1, 2, 3)', 'token(p1, p3, p2)', 'token(p1, p1, 3)'.
+// Doesn't perform validation, it should be done before
+// calling this function.
+// Accepts only prepared expressions, calling it with
+// an unprepared expression might end with on_internal_error().
+bool is_partition_token(const function_call&);
+bool is_partition_token(const expression&);
 } // namespace expr
 
 } // namespace cql3
