@@ -70,7 +70,6 @@ struct binary_operator;
 struct conjunction;
 struct column_value;
 struct subscript;
-struct token;
 struct unresolved_identifier;
 struct column_mutation_attribute;
 struct function_call;
@@ -89,7 +88,6 @@ concept ExpressionElement
         || std::same_as<T, binary_operator>
         || std::same_as<T, column_value>
         || std::same_as<T, subscript>
-        || std::same_as<T, token>
         || std::same_as<T, unresolved_identifier>
         || std::same_as<T, column_mutation_attribute>
         || std::same_as<T, function_call>
@@ -109,7 +107,6 @@ concept invocable_on_expression
         && std::invocable<Func, binary_operator>
         && std::invocable<Func, column_value>
         && std::invocable<Func, subscript>
-        && std::invocable<Func, token>
         && std::invocable<Func, unresolved_identifier>
         && std::invocable<Func, column_mutation_attribute>
         && std::invocable<Func, function_call>
@@ -129,7 +126,6 @@ concept invocable_on_expression_ref
         && std::invocable<Func, binary_operator&>
         && std::invocable<Func, column_value&>
         && std::invocable<Func, subscript&>
-        && std::invocable<Func, token&>
         && std::invocable<Func, unresolved_identifier&>
         && std::invocable<Func, column_mutation_attribute&>
         && std::invocable<Func, function_call&>
@@ -228,18 +224,6 @@ const column_value& get_subscripted_column(const subscript&);
 /// Gets the column_definition* out of expression that can be a column_value or subscript
 /// Only columns can be subscripted in CQL, so we can expect that the subscripted expression is a column_value.
 const column_value& get_subscripted_column(const expression&);
-
-/// Represents token(c1, c2) function on LHS of an operator relation.
-/// args contains arguments to the token function.
-struct token {
-    std::vector<expression> args;
-
-    explicit token(std::vector<expression>);
-    explicit token(const std::vector<const column_definition*>&);
-    explicit token(const std::vector<::shared_ptr<column_identifier_raw>>&);
-
-    friend bool operator==(const token&, const token&) = default;
-};
 
 enum class oper_t { EQ, NEQ, LT, LTE, GTE, GT, IN, CONTAINS, CONTAINS_KEY, IS_NOT, LIKE };
 
@@ -423,7 +407,7 @@ struct usertype_constructor {
 // now that all expression types are fully defined, we can define expression::impl
 struct expression::impl final {
     using variant_type = std::variant<
-            conjunction, binary_operator, column_value, token, unresolved_identifier,
+            conjunction, binary_operator, column_value, unresolved_identifier,
             column_mutation_attribute, function_call, cast, field_selection,
             bind_variable, untyped_constant, constant, tuple_constructor, collection_constructor,
             usertype_constructor, subscript>;
@@ -633,10 +617,6 @@ inline bool is_multi_column(const binary_operator& op) {
     return expr::is<tuple_constructor>(op.lhs);
 }
 
-inline bool has_token(const expression& e) {
-    return find_binop(e, [] (const binary_operator& o) { return expr::is<token>(o.lhs); });
-}
-
 inline bool has_slice_or_needs_filtering(const expression& e) {
     return find_binop(e, [] (const binary_operator& o) { return is_slice(o.op) || needs_filtering(o.op); });
 }
@@ -826,6 +806,10 @@ bool is_token_function(const expression&);
 // an unprepared expression might end with on_internal_error().
 bool is_partition_token(const function_call&);
 bool is_partition_token(const expression&);
+
+inline bool has_token(const expression& e) {
+    return find_binop(e, [] (const binary_operator& o) { return expr::is_partition_token(o.lhs); });
+}
 } // namespace expr
 
 } // namespace cql3

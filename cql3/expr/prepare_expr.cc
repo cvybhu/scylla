@@ -784,6 +784,11 @@ cast_prepare_expression(const cast& c, data_dictionary::database db, const sstri
 
 std::optional<expression>
 prepare_function_call(const expr::function_call& fc, data_dictionary::database db, const sstring& keyspace, const schema* schema_opt, lw_shared_ptr<column_specification> receiver) {
+    if (is_token_function(fc) && schema_opt != nullptr) {
+        receiver = ::make_lw_shared<column_specification>(
+            keyspace, schema_opt->cf_name(), ::make_shared<column_identifier>("partition key token", true), long_type);
+    }
+
     if (!receiver) {
         // TODO: It is possible to infer the type of a function call if there is only one overload, or if all overloads return the same type
         return std::nullopt;
@@ -980,25 +985,6 @@ try_prepare_expression(const expression& expr, data_dictionary::database db, con
                 .type = static_cast<const collection_type_impl&>(sub_col_type).value_comparator(),
             };
         },
-        [&] (const token& tk) -> std::optional<expression> {
-            if (!schema_opt) {
-                throw exceptions::invalid_request_exception("cannot process token() function without schema");
-            }
-            auto& schema = *schema_opt;
-
-            std::vector<expression> prepared_token_args;
-            prepared_token_args.reserve(tk.args.size());
-
-            for (const expression& arg : tk.args) {
-                auto prepared_arg_opt = try_prepare_expression(arg, db, keyspace, schema_opt, receiver);
-                if (!prepared_arg_opt) {
-                    return std::nullopt;
-                }
-                prepared_token_args.emplace_back(std::move(*prepared_arg_opt));
-            }
-
-            return token(std::move(prepared_token_args));
-        },
         [&] (const unresolved_identifier& unin) -> std::optional<expression> {
             if (!schema_opt) {
                 throw exceptions::invalid_request_exception(fmt::format("Cannot resolve column {} without schema", unin.ident->to_cql_string()));
@@ -1059,9 +1045,6 @@ test_assignment(const expression& expr, data_dictionary::database db, const sstr
         },
         [&] (const subscript&) -> test_result {
             on_internal_error(expr_logger, "subscripts are not yet reachable via test_assignment()");
-        },
-        [&] (const token&) -> test_result {
-            on_internal_error(expr_logger, "tokens are not yet reachable via test_assignment()");
         },
         [&] (const unresolved_identifier&) -> test_result {
             on_internal_error(expr_logger, "unresolved_identifiers are not yet reachable via test_assignment()");
@@ -1189,7 +1172,11 @@ static lw_shared_ptr<column_specification> get_lhs_receiver(const expression& pr
             data_type tuple_type = tuple_type_impl::get_instance(tuple_types);
             return make_lw_shared<column_specification>(schema.ks_name(), schema.cf_name(), std::move(identifier), std::move(tuple_type));
         },
-        [&](const token& col_val) -> lw_shared_ptr<column_specification> {
+        [&](const function_call& fun_call) -> lw_shared_ptr<column_specification> {
+            if (!is_partition_token(fun_call)) {
+                on_internal_error(expr_logger, format("get_lhs_receiver: unexpected expression: {}", fun_call));
+            }
+
             return make_lw_shared<column_specification>(schema.ks_name(),
                                                         schema.cf_name(),
                                                         ::make_shared<column_identifier>("partition key token", true),

@@ -173,7 +173,7 @@ void preliminary_binop_vaidation_checks(const binary_operator& binop) {
         }
     }
 
-    if (is<token>(binop.lhs)) {
+    if (is_token_function(binop.lhs)) {
         if (binop.op == oper_t::IN) {
             throw exceptions::invalid_request_exception("IN cannot be used with the token function");
         }
@@ -235,9 +235,10 @@ binary_operator validate_and_prepare_new_restriction(const binary_operator& rest
         }
 
         validate_multi_column_relation(lhs_cols, prepared_binop.op);
-    } else if (auto lhs_token = as_if<token>(&prepared_binop.lhs)) {
+    } else if (is_partition_token(prepared_binop.lhs)) {
         // Token restriction
-        std::vector<const column_definition*> column_defs = to_column_definitions(lhs_token->args);
+        const function_call& fun_call = as<function_call>(prepared_binop.lhs);
+        std::vector<const column_definition*> column_defs = to_column_definitions(fun_call.args);
         validate_token_relation(column_defs, prepared_binop.op, *schema);
     } else {
         // Anything else

@@ -88,16 +88,6 @@ static std::vector<expr::expression> extract_partition_range(
             current_binary_operator = nullptr;
         }
 
-        void operator()(const token&) {
-            with_current_binary_operator(*this, [&] (const binary_operator& b) {
-                if (tokens) {
-                    tokens = make_conjunction(std::move(*tokens), b);
-                } else {
-                    tokens = b;
-                }
-            });
-        }
-
         void operator()(const column_value& cv) {
             auto s = &cv;
             with_current_binary_operator(*this, [&] (const binary_operator& b) {
@@ -141,8 +131,18 @@ static std::vector<expr::expression> extract_partition_range(
             on_internal_error(rlogger, "extract_partition_range(column_mutation_attribute)");
         }
 
-        void operator()(const function_call&) {
-            on_internal_error(rlogger, "extract_partition_range(function_call)");
+        void operator()(const function_call& fun_call) {
+            if (!is_partition_token(fun_call)) {
+                on_internal_error(rlogger, "extract_partition_range(function_call)");
+            }
+
+            with_current_binary_operator(*this, [&] (const binary_operator& b) {
+                if (tokens) {
+                    tokens = make_conjunction(std::move(*tokens), b);
+                } else {
+                    tokens = b;
+                }
+            });
         }
 
         void operator()(const cast&) {
@@ -248,10 +248,6 @@ static std::vector<expr::expression> extract_clustering_prefix_restrictions(
             });
         }
 
-        void operator()(const token&) {
-            // A token cannot be a clustering prefix restriction
-        }
-
         void operator()(const constant&) {}
 
         void operator()(const unresolved_identifier&) {
@@ -262,8 +258,10 @@ static std::vector<expr::expression> extract_clustering_prefix_restrictions(
             on_internal_error(rlogger, "extract_clustering_prefix_restrictions(column_mutation_attribute)");
         }
 
-        void operator()(const function_call&) {
-            on_internal_error(rlogger, "extract_clustering_prefix_restrictions(function_call)");
+        void operator()(const function_call& fun_call) {
+            if (!is_partition_token(fun_call)) {
+                on_internal_error(rlogger, "extract_clustering_prefix_restrictions(function_call)");
+            }
         }
 
         void operator()(const cast&) {
@@ -1205,10 +1203,6 @@ struct multi_column_range_accumulator {
 
     void operator()(const subscript&) {
         on_internal_error(rlogger, "Subscript encountered outside binary operator");
-    }
-
-    void operator()(const token&) {
-        on_internal_error(rlogger, "Token encountered outside binary operator");
     }
 
     void operator()(const unresolved_identifier&) {
