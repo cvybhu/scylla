@@ -229,8 +229,13 @@ const column_value& get_subscripted_column(const subscript&);
 /// Only columns can be subscripted in CQL, so we can expect that the subscripted expression is a column_value.
 const column_value& get_subscripted_column(const expression&);
 
-/// Represents token(c1, c2) function on LHS of an operator relation.
-/// args contains arguments to the token function.
+/// Represents a call to the token() function where the arguments
+/// are partition key columns of the table.
+/// Calling token(p1, p2, ..) gives the exact value of the partition key.
+/// This fact can be used to efficiently execute queries with restrictions like:
+/// `token(p1, p2, ...) = 1234`.
+/// All function_calls to token(p1, p2, ...) are replaced with `expr::token`
+/// during preparation to later easily detect such cases and optimize the queries.
 struct token {
     std::vector<expression> args;
 
