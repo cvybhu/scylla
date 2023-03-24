@@ -1041,7 +1041,32 @@ try_prepare_expression(const expression& expr, data_dictionary::database db, con
             on_internal_error(expr_logger, "column_mutation_attributes are not yet reachable via prepare_expression()");
         },
         [&] (const function_call& fc) -> std::optional<expression> {
-            return prepare_function_call(fc, db, keyspace, schema_opt, std::move(receiver));
+            std::optional<expression> prepared_fun = prepare_function_call(fc, db, keyspace, schema_opt, std::move(receiver));
+
+            // Check if the prepared function represents the partition token, if so it should be converted to expr::token.
+            if (!prepared_fun.has_value()) {
+                return prepared_fun;
+            }
+
+            const function_call* prepared_fun_call = as_if<function_call>(&*prepared_fun);
+            if (prepared_fun_call == nullptr) {
+                return prepared_fun;
+            }
+
+            if (!is_token_function(*prepared_fun_call)) {
+                return prepared_fun;
+            }
+
+            if (schema_opt == nullptr) {
+                throw exceptions::invalid_request_exception("Can't prepare the token function without a schema");
+            }
+
+            if (!is_partition_token_for_schema(*prepared_fun_call, *schema_opt)) {
+                return prepared_fun;
+            }
+
+            // It's the partition token, we should return expr::token instead of function_call.
+            return token(prepared_fun_call->args);
         },
         [&] (const cast& c) -> std::optional<expression> {
             return cast_prepare_expression(c, db, keyspace, schema_opt, receiver);
