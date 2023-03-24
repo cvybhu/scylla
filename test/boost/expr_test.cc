@@ -4169,3 +4169,31 @@ BOOST_AUTO_TEST_CASE(optimized_constant_like) {
             binary_operator(target_var, oper_t::LIKE, make_text_const("xx%")));
     BOOST_REQUIRE(check(std::move(complex), "xxyyz", true));
 }
+
+BOOST_AUTO_TEST_CASE(test_is_partition_token_for_schema) {
+    schema_ptr schema1 = schema_builder("test_ks", "test_cf")
+                                .with_column("p1", int32_type, column_kind::partition_key)
+                                .with_column("p2", int32_type, column_kind::partition_key)
+                                .with_column("p3", int32_type, column_kind::partition_key)
+                                .with_column("c1", int32_type, column_kind::clustering_key)
+                                .with_column("c2", int32_type, column_kind::clustering_key)
+                                .with_column("s", int32_type, column_kind::static_column)
+                                .with_column("r2", int32_type, column_kind::regular_column)
+                                .with_column("r2", int32_type, column_kind::regular_column)
+                                .build();
+
+    schema_ptr schema2 = schema_builder("test_ks", "test_cf")
+                                .with_column("pk1", int32_type, column_kind::partition_key)
+                                .with_column("pk2", int32_type, column_kind::partition_key)
+                                .with_column("pk3", int32_type, column_kind::partition_key)
+                                .with_column("ck1", int32_type, column_kind::clustering_key)
+                                .with_column("ck2", int32_type, column_kind::clustering_key)
+                                .with_column("stat", int32_type, column_kind::static_column)
+                                .with_column("reg2", int32_type, column_kind::regular_column)
+                                .with_column("reg2", int32_type, column_kind::regular_column)
+                                .build();
+
+    auto make_token_fun = [](std::vector<const char*> col_names) -> function_call {
+        throw std::runtime_error("Unimplemented");
+    };
+}
