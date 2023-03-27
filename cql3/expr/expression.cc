@@ -1782,8 +1782,8 @@ cql3::raw_value evaluate(const expression& e, const evaluation_inputs& inputs) {
         [&](const conjunction& conj) -> cql3::raw_value {
             return evaluate(conj, inputs);
         },
-        [](const token&) -> cql3::raw_value {
-            on_internal_error(expr_logger, "Can't evaluate token");
+        [&](const token& tok) -> cql3::raw_value {
+            return evaluate(tok.fun_call, inputs);
         },
         [](const unresolved_identifier&) -> cql3::raw_value {
             on_internal_error(expr_logger, "Can't evaluate unresolved_identifier");
