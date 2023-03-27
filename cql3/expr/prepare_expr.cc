@@ -1097,13 +1097,23 @@ try_prepare_expression(const expression& expr, data_dictionary::database db, con
     }, expr);
 }
 
+static assignment_testable::test_result expression_test_assignment(const data_type& expr_type,
+                                                                   const column_specification& receiver) {
+    if (receiver.type->underlying_type() == expr_type->underlying_type()) {
+        return assignment_testable::test_result::EXACT_MATCH;
+    } else if (receiver.type->is_value_compatible_with(*expr_type)) {
+        return assignment_testable::test_result::WEAKLY_ASSIGNABLE;
+    } else {
+        return assignment_testable::test_result::NOT_ASSIGNABLE;
+    }
+}
+
 assignment_testable::test_result
 test_assignment(const expression& expr, data_dictionary::database db, const sstring& keyspace, const column_specification& receiver) {
     using test_result = assignment_testable::test_result;
     return expr::visit(overloaded_functor{
-        [&] (const constant&) -> test_result {
-            // constants shouldn't appear in parser output, only untyped_constants
-            on_internal_error(expr_logger, "constants are not yet reachable via test_assignment()");
+        [&] (const constant& value) -> test_result {
+            return expression_test_assignment(value.type, receiver);
         },
         [&] (const binary_operator&) -> test_result {
             on_internal_error(expr_logger, "binary_operators are not yet reachable via test_assignment()");
