@@ -958,8 +958,8 @@ std::optional<expression> prepare_conjunction(const conjunction& conj,
 std::optional<expression>
 try_prepare_expression(const expression& expr, data_dictionary::database db, const sstring& keyspace, const schema* schema_opt, lw_shared_ptr<column_specification> receiver) {
     return expr::visit(overloaded_functor{
-        [] (const constant&) -> std::optional<expression> {
-            on_internal_error(expr_logger, "Can't prepare constant_value, it should not appear in parser output");
+        [] (const constant& value) -> std::optional<expression> {
+            return value;
         },
         [&] (const binary_operator& binop) -> std::optional<expression> {
             if (receiver.get() != nullptr && &receiver->type->without_reversed() != boolean_type.get()) {
