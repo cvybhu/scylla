@@ -1033,22 +1033,7 @@ try_prepare_expression(const expression& expr, data_dictionary::database db, con
             };
         },
         [&] (const token& tk) -> std::optional<expression> {
-            if (!schema_opt) {
-                throw exceptions::invalid_request_exception("cannot process token() function without schema");
-            }
-
-            std::vector<expression> prepared_token_args;
-            prepared_token_args.reserve(tk.args.size());
-
-            for (const expression& arg : tk.args) {
-                auto prepared_arg_opt = try_prepare_expression(arg, db, keyspace, schema_opt, receiver);
-                if (!prepared_arg_opt) {
-                    return std::nullopt;
-                }
-                prepared_token_args.emplace_back(std::move(*prepared_arg_opt));
-            }
-
-            return token(std::move(prepared_token_args));
+            return try_prepare_expression(tk.fun_call, db, keyspace, schema_opt, receiver);
         },
         [&] (const unresolved_identifier& unin) -> std::optional<expression> {
             if (!schema_opt) {
@@ -1085,7 +1070,9 @@ try_prepare_expression(const expression& expr, data_dictionary::database db, con
             }
 
             // It's the partition token, we should return expr::token instead of function_call.
-            return token(prepared_fun_call->args);
+            return token {
+                .fun_call = std::move(*prepared_fun_call)
+            };
         },
         [&] (const cast& c) -> std::optional<expression> {
             return cast_prepare_expression(c, db, keyspace, schema_opt, receiver);

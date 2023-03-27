@@ -70,24 +70,6 @@ expression::operator=(const expression& o) {
     return *this;
 }
 
-token::token(std::vector<expression> args_in)
-    : args(std::move(args_in)) {
-}
-
-token::token(const std::vector<const column_definition*>& col_defs) {
-    args.reserve(col_defs.size());
-    for (const column_definition* col_def : col_defs) {
-        args.push_back(column_value(col_def));
-    }
-}
-
-token::token(const std::vector<::shared_ptr<column_identifier_raw>>& cols) {
-    args.reserve(cols.size());
-    for(const ::shared_ptr<column_identifier_raw>& col : cols) {
-        args.push_back(unresolved_identifier{col});
-    }
-}
-
 binary_operator::binary_operator(expression lhs, oper_t op, expression rhs, comparison_order order)
             : lhs(std::move(lhs))
             , op(op)
@@ -1164,7 +1146,11 @@ std::ostream& operator<<(std::ostream& os, const expression::printer& pr) {
                 }
             },
             [&] (const token& t) {
-                fmt::print(os, "token({})", fmt::join(t.args | transformed(to_printer), ", "));
+                if (pr.debug_mode) {
+                    fmt::print(os, "expr::token({})", fmt::join(t.fun_call.args | transformed(to_printer), ", "));
+                } else {
+                    fmt::print(os, "token({})", fmt::join(t.fun_call.args | transformed(to_printer), ", "));
+                }
             },
             [&] (const column_value& col) {
                 fmt::print(os, "{}", cql3::util::maybe_quote(col.col->name_as_text()));
@@ -1185,14 +1171,18 @@ std::ostream& operator<<(std::ostream& os, const expression::printer& pr) {
                         to_printer(cma.column));
             },
             [&] (const function_call& fc)  {
-                std::visit(overloaded_functor{
-                    [&] (const functions::function_name& named) {
-                        fmt::print(os, "{}({})", named, fmt::join(fc.args | transformed(to_printer), ", "));
-                    },
-                    [&] (const shared_ptr<functions::function>& anon) {
-                        fmt::print(os, "<anonymous function>({})", fmt::join(fc.args | transformed(to_printer), ", "));
-                    },
-                }, fc.func);
+                if (is_token_function(fc)) {
+                    fmt::print(os, "token({})", fmt::join(fc.args | transformed(to_printer), ", "));
+                } else {
+                    std::visit(overloaded_functor{
+                        [&] (const functions::function_name& named) {
+                            fmt::print(os, "{}({})", named, fmt::join(fc.args | transformed(to_printer), ", "));
+                        },
+                        [&] (const shared_ptr<functions::function>& anon) {
+                            fmt::print(os, "<anonymous function>({})", fmt::join(fc.args | transformed(to_printer), ", "));
+                        },
+                    }, fc.func);
+                }
             },
             [&] (const cast& c)  {
                 std::visit(overloaded_functor{
@@ -1444,7 +1434,7 @@ bool recurse_until(const expression& e, const noncopyable_function<bool (const e
                 return false;
             },
             [&] (const token& tok) {
-                for (auto& a : tok.args) {
+                for (auto& a : tok.fun_call.args) {
                     if (auto found = recurse_until(a, predicate_fun)) {
                         return found;
                     }
@@ -1468,20 +1458,20 @@ expression search_and_replace(const expression& e,
     } else {
         return expr::visit(
             overloaded_functor{
-                [&] (const conjunction& conj) -> expression {
+                [&](const conjunction& conj) -> expression {
                     return conjunction{
                         boost::copy_range<std::vector<expression>>(
                             conj.children | boost::adaptors::transformed(recurse)
                         )
                     };
                 },
-                [&] (const binary_operator& oper) -> expression {
+                [&](const binary_operator& oper) -> expression {
                     return binary_operator(recurse(oper.lhs), oper.op, recurse(oper.rhs), oper.order);
                 },
-                [&] (const column_mutation_attribute& cma) -> expression {
+                [&](const column_mutation_attribute& cma) -> expression {
                     return column_mutation_attribute{cma.kind, recurse(cma.column)};
                 },
-                [&] (const tuple_constructor& tc) -> expression {
+                [&](const tuple_constructor& tc) -> expression {
                     return tuple_constructor{
                         boost::copy_range<std::vector<expression>>(
                             tc.elements | boost::adaptors::transformed(recurse)
@@ -1489,7 +1479,7 @@ expression search_and_replace(const expression& e,
                         tc.type
                     };
                 },
-                [&] (const collection_constructor& c) -> expression {
+                [&](const collection_constructor& c) -> expression {
                     return collection_constructor{
                         c.style,
                         boost::copy_range<std::vector<expression>>(
@@ -1498,14 +1488,14 @@ expression search_and_replace(const expression& e,
                         c.type
                     };
                 },
-                [&] (const usertype_constructor& uc) -> expression {
+                [&](const usertype_constructor& uc) -> expression {
                     usertype_constructor::elements_map_type m;
                     for (auto& [k, v] : uc.elements) {
                         m.emplace(k, recurse(v));
                     }
                     return usertype_constructor{std::move(m), uc.type};
                 },
-                [&] (const function_call& fc) -> expression {
+                [&](const function_call& fc) -> expression {
                     return function_call{
                         fc.func,
                         boost::copy_range<std::vector<expression>>(
@@ -1513,13 +1503,13 @@ expression search_and_replace(const expression& e,
                         )
                     };
                 },
-                [&] (const cast& c) -> expression {
+                [&](const cast& c) -> expression {
                     return cast{recurse(c.arg), c.type};
                 },
-                [&] (const field_selection& fs) -> expression {
+                [&](const field_selection& fs) -> expression {
                     return field_selection{recurse(fs.structure), fs.field};
                 },
-                [&] (const subscript& s) -> expression {
+                [&](const subscript& s) -> expression {
                     return subscript {
                         .val = recurse(s.val),
                         .sub = recurse(s.sub),
@@ -1527,16 +1517,37 @@ expression search_and_replace(const expression& e,
                     };
                 },
                 [&](const token& tok) -> expression {
-                    return token {
-                        boost::copy_range<std::vector<expression>>(
-                            tok.args | boost::adaptors::transformed(recurse)
-                        )
-                    };
+                    expression recurse_res = recurse(tok.fun_call);
+                    function_call* new_fun_call = as_if<function_call>(&recurse_res);
+
+                    // The call to recurse() could have changed the function_call
+                    // to something entirely different.
+                    // Let's check whether the new thing is still the same call to token().
+                    // If the expression remains unchanged then return an expr::token,
+                    // but if there were some changes then it's no longer a partition
+                    // key token and the new expression should be returned instead.
+                    if (new_fun_call == nullptr || !is_token_function(*new_fun_call) ||
+                        new_fun_call->args.size() != tok.fun_call.args.size()) {
+                        return recurse_res;
+                    }
+
+                    for (std::size_t i = 0; i < tok.fun_call.args.size(); i++) {
+                        const column_value* original_col_val = as_if<column_value>(&tok.fun_call.args[i]);
+                        const column_value* new_col_val = as_if<column_value>(&new_fun_call->args[i]);
+
+                        if (original_col_val == nullptr || new_col_val == nullptr ||
+                            original_col_val->col != new_col_val->col) {
+                            return recurse_res;
+                        }
+                    }
+
+                    // Okay the call to token still represents the same partition key token,
+                    // let's return an expr::token.
+                    return token{.fun_call = std::move(*new_fun_call)};
                 },
-                [&] (LeafExpression auto const& e) -> expression {
-                    return e;
-                },
-            }, e);
+                [&](LeafExpression auto const& e) -> expression { return e; },
+            },
+            e);
     }
 }
 
@@ -2316,9 +2327,7 @@ void fill_prepare_context(expression& e, prepare_context& ctx) {
             }
         }
         void operator()(token& tok) {
-            for (expression& arg : tok.args) {
-                fill_prepare_context(arg, ctx);
-            }
+            (*this)(tok.fun_call);
         }
         void operator()(unresolved_identifier&) {}
         void operator()(column_mutation_attribute& a) {

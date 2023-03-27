@@ -183,6 +183,5 @@ SEASTAR_TEST_CASE(test_like_operator_on_token) {
         BOOST_REQUIRE_EXCEPTION(
                 e.execute_cql("select * from t where token(s) like 'abc' allow filtering").get(),
                 exceptions::invalid_request_exception,
-                exception_predicate::message_contains("token function"));
-    });
-}
+                exception_predicate::message_contains("token"));
+    });}

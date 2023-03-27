@@ -327,11 +327,9 @@ struct function_call {
 /// All function_calls to token(p1, p2, ...) are replaced with `expr::token`
 /// during preparation to later easily detect such cases and optimize the queries.
 struct token {
-    std::vector<expression> args;
-
-    explicit token(std::vector<expression>);
-    explicit token(const std::vector<const column_definition*>&);
-    explicit token(const std::vector<::shared_ptr<column_identifier_raw>>&);
+    // A call to the token() function, where the arguments are the consecutive
+    // partition key columns.
+    function_call fun_call;
 
     friend bool operator==(const token&, const token&) = default;
 };

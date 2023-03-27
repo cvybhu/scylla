@@ -201,7 +201,7 @@ binary_operator validate_and_prepare_new_restriction(const binary_operator& rest
         validate_multi_column_relation(lhs_cols, prepared_binop.op);
     } else if (auto lhs_token = as_if<token>(&prepared_binop.lhs)) {
         // Token restriction
-        std::vector<const column_definition*> column_defs = to_column_definitions(lhs_token->args);
+        std::vector<const column_definition*> column_defs = to_column_definitions(lhs_token->fun_call.args);
         validate_token_relation(column_defs, prepared_binop.op, *schema);
     } else {
         // Anything else
