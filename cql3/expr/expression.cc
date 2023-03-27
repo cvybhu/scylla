@@ -2275,26 +2275,28 @@ utils::chunked_vector<std::vector<managed_bytes_opt>> get_list_of_tuples_element
 }
 
 void fill_prepare_context(expression& e, prepare_context& ctx) {
-    expr::visit(overloaded_functor {
-        [&](bind_variable& bind_var) {
+    struct fill_prepare_context_visitor {
+        prepare_context& ctx;
+
+        void operator()(bind_variable& bind_var) {
             ctx.add_variable_specification(bind_var.bind_index, bind_var.receiver);
-        },
-        [&](collection_constructor& c) {
+        }
+        void operator()(collection_constructor& c) {
             for (expr::expression& element : c.elements) {
                 fill_prepare_context(element, ctx);
             }
-        },
-        [&](tuple_constructor& t) {
+        }
+        void operator()(tuple_constructor& t) {
             for (expr::expression& element : t.elements) {
                 fill_prepare_context(element, ctx);
             }
-        },
-        [&](usertype_constructor& u) {
+        }
+        void operator()(usertype_constructor& u) {
             for (auto& [field_name, field_val] : u.elements) {
                 fill_prepare_context(field_val, ctx);
             }
-        },
-        [&](function_call& f) {
+        }
+        void operator()(function_call& f) {
             const shared_ptr<functions::function>& func = std::get<shared_ptr<functions::function>>(f.func);
             if (ctx.is_processing_pk_restrictions() && !func->is_pure()) {
                 ctx.add_pk_function_call(f);
@@ -2303,39 +2305,41 @@ void fill_prepare_context(expression& e, prepare_context& ctx) {
             for (expr::expression& argument : f.args) {
                 fill_prepare_context(argument, ctx);
             }
-        },
-        [&](binary_operator& binop) {
+        }
+        void operator()(binary_operator& binop) {
             fill_prepare_context(binop.lhs, ctx);
             fill_prepare_context(binop.rhs, ctx);
-        },
-        [&](conjunction& c) {
+        }
+        void operator()(conjunction& c) {
             for (expression& child : c.children) {
                 fill_prepare_context(child, ctx);
             }
-        },
-        [&](token& tok) {
+        }
+        void operator()(token& tok) {
             for (expression& arg : tok.args) {
                 fill_prepare_context(arg, ctx);
             }
-        },
-        [](unresolved_identifier&) {},
-        [&](column_mutation_attribute& a) {
+        }
+        void operator()(unresolved_identifier&) {}
+        void operator()(column_mutation_attribute& a) {
             fill_prepare_context(a.column, ctx);
-        },
-        [&](cast& c) {
+        }
+        void operator()(cast& c) {
             fill_prepare_context(c.arg, ctx);
-        },
-        [&](field_selection& fs) {
+        }
+        void operator()(field_selection& fs) {
             fill_prepare_context(fs.structure, ctx);
-        },
-        [](column_value& cv) {},
-        [&](subscript& s) {
+        }
+        void operator()(column_value& cv) {}
+        void operator()(subscript& s) {
             fill_prepare_context(s.val, ctx);
             fill_prepare_context(s.sub, ctx);
-        },
-        [](untyped_constant&) {},
-        [](constant&) {},
-    }, e);
+        }
+        void operator()(untyped_constant&) {}
+        void operator()(constant&) {}
+    };
+
+    expr::visit(fill_prepare_context_visitor{.ctx = ctx}, e);
 }
 
 bool contains_bind_marker(const expression& e) {
