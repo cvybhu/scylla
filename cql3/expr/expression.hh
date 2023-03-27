@@ -229,23 +229,6 @@ const column_value& get_subscripted_column(const subscript&);
 /// Only columns can be subscripted in CQL, so we can expect that the subscripted expression is a column_value.
 const column_value& get_subscripted_column(const expression&);
 
-/// Represents a call to the token() function where the arguments
-/// are partition key columns of the table.
-/// Calling token(p1, p2, ..) gives the exact value of the partition key.
-/// This fact can be used to efficiently execute queries with restrictions like:
-/// `token(p1, p2, ...) = 1234`.
-/// All function_calls to token(p1, p2, ...) are replaced with `expr::token`
-/// during preparation to later easily detect such cases and optimize the queries.
-struct token {
-    std::vector<expression> args;
-
-    explicit token(std::vector<expression>);
-    explicit token(const std::vector<const column_definition*>&);
-    explicit token(const std::vector<::shared_ptr<column_identifier_raw>>&);
-
-    friend bool operator==(const token&, const token&) = default;
-};
-
 enum class oper_t { EQ, NEQ, LT, LTE, GTE, GT, IN, CONTAINS, CONTAINS_KEY, IS_NOT, LIKE };
 
 /// Describes the nature of clustering-key comparisons.  Useful for implementing SCYLLA_CLUSTERING_BOUND.
@@ -334,6 +317,23 @@ struct function_call {
     ::shared_ptr<std::optional<uint8_t>> lwt_cache_id;
 
     friend bool operator==(const function_call&, const function_call&) = default;
+};
+
+/// Represents a call to the token() function where the arguments
+/// are partition key columns of the table.
+/// Calling token(p1, p2, ..) gives the exact value of the partition key.
+/// This fact can be used to efficiently execute queries with restrictions like:
+/// `token(p1, p2, ...) = 1234`.
+/// All function_calls to token(p1, p2, ...) are replaced with `expr::token`
+/// during preparation to later easily detect such cases and optimize the queries.
+struct token {
+    std::vector<expression> args;
+
+    explicit token(std::vector<expression>);
+    explicit token(const std::vector<const column_definition*>&);
+    explicit token(const std::vector<::shared_ptr<column_identifier_raw>>&);
+
+    friend bool operator==(const token&, const token&) = default;
 };
 
 struct cast {
