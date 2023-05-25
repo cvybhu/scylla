@@ -6284,4 +6284,45 @@ future<std::vector<dht::token_range_endpoints>> storage_proxy::describe_ring(con
     return locator::describe_ring(_db.local(), _remote->gossiper(), keyspace, include_only_local_dc);
 }
 
+future<> storage_proxy::control_no_invalid_keyspaces() const {
+    bool debug = false;
+
+    std::vector<sstring> allowed_simple_keyspaces = {
+        "system_auth", "system_distributed", "system_traces"
+    };
+
+    for(;;) {
+        int datacenters_count = get_token_metadata_ptr()->get_topology().get_datacenter_endpoints().size();
+
+        if (debug) {
+            std::cout << "Controlling keyspaces..." << std::endl;
+            std::cout << "DC count: " << datacenters_count << std::endl;
+        }
+
+        for (auto&& [ks_name, ks] : _db.local().get_keyspaces()) {
+            lw_shared_ptr<data_dictionary::keyspace_metadata> ks_data = ks.metadata();
+            const sstring& strategy_name = ks_data->strategy_name();
+
+            if (debug) {
+                std::cout << ks_name << ": " << strategy_name << std::endl;
+            }
+
+            bool one_of_allowed = false;
+            for (const sstring& allowed_simple_keyspace : allowed_simple_keyspaces) {
+                if (allowed_simple_keyspace == ks_name) {
+                    one_of_allowed = true;
+                }
+            }
+
+            if (!one_of_allowed && datacenters_count > 1 && strategy_name == "org.apache.cassandra.locator.SimpleStrategy") {
+                std::cout << "INVALID KEYSPACE DETECTED" << std::endl;
+                std::cout << "Keyspace '" << ks_name << "' has SimpleStrategy, but there are " << datacenters_count << " datacenters!" << std::endl;
+                abort();
+            }
+        }
+
+        co_await seastar::sleep(10ms);
+    }
+}
+
 }

@@ -1459,6 +1459,12 @@ To start the scylla server proper, simply invoke as: scylla server (or just scyl
                 proxy.invoke_on_all(&service::storage_proxy::uninit_messaging_service).get();
             });
 
+            // Run a background task that detects invalid keyspace configuration.
+            seastar::future<> control_keyspaces_future = proxy.invoke_on(0, [](service::storage_proxy& proxy) {
+                return proxy.control_no_invalid_keyspaces();
+            });
+            (void)control_keyspaces_future;
+
             debug::the_stream_manager = &stream_manager;
             supervisor::notify("starting streaming service");
             stream_manager.start(std::ref(*cfg), std::ref(db), std::ref(sys_dist_ks), std::ref(view_update_generator), std::ref(messaging), std::ref(mm), std::ref(gossiper), maintenance_scheduling_group).get();

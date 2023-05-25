@@ -484,6 +484,8 @@ public:
     void init_messaging_service(migration_manager*);
     future<> uninit_messaging_service();
 
+    future<> control_no_invalid_keyspaces() const;
+
 private:
     // Applies mutation on this node.
     // Resolves with timed_out_error when timeout is reached.
