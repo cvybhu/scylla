@@ -156,6 +156,23 @@ std::optional<sstring> check_restricted_replication_strategy(
     }
     sstring replication_strategy = locator::abstract_replication_strategy::to_qualified_class_name(
         *attrs.get_replication_strategy_class());
+
+    // Forbid creation of SimpleStrategy keyspaces when there is more than one datacenter.
+    std::vector<sstring> allowed_simple_keyspaces = {"system_auth", "system_distributed", "system_traces"};
+    bool one_of_allowed = false;
+    for (const sstring& allowed : allowed_simple_keyspaces) {
+        if (keyspace == allowed) {
+            one_of_allowed = true;
+        }
+    }
+
+    int datacenters_count = qp.proxy().get_token_metadata_ptr()->get_topology().get_datacenter_endpoints().size();
+    if (!one_of_allowed && replication_strategy == "org.apache.cassandra.locator.SimpleStrategy" &&
+        datacenters_count > 1) {
+        throw exceptions::configuration_exception(
+            format("Trying to create a SimpleStrategy keyspace in a cluster with {} datacenters", datacenters_count));
+    }
+
     // SimpleStrategy is not recommended in any setup which already has - or
     // may have in the future - multiple racks or DCs. So depending on how
     // protective we are configured, let's prevent it or allow with a warning:
