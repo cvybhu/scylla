@@ -333,6 +333,12 @@ database::database(const db::config& cfg, database_config dbcfg, service::migrat
         max_inactive_queue_length(),
         _cfg.reader_concurrency_semaphore_serialize_limit_multiplier,
         _cfg.reader_concurrency_semaphore_kill_limit_multiplier)
+    ,_view_read_concurrency_sem(max_count_concurrent_reads,
+    max_memory_concurrent_reads(),
+    "_view_read_concurrency_sem",
+    max_inactive_queue_length(),
+    _cfg.reader_concurrency_semaphore_serialize_limit_multiplier,
+    _cfg.reader_concurrency_semaphore_kill_limit_multiplier)
     // No timeouts or queue length limits - a failure here can kill an entire repair.
     // Trust the caller to limit concurrency.
     , _streaming_concurrency_sem(
@@ -1999,7 +2005,7 @@ future<> database::do_apply(schema_ptr s, const frozen_mutation& m, tracing::tra
             co_await coroutine::return_exception(std::runtime_error("view update generator not plugged to push updates"));
         }
 
-        auto lock_f = co_await coroutine::as_future(cf.push_view_replica_updates(_view_update_generator, s, m, timeout, std::move(tr_state), get_reader_concurrency_semaphore()));
+        auto lock_f = co_await coroutine::as_future(cf.push_view_replica_updates(_view_update_generator, s, m, timeout, std::move(tr_state), _view_read_concurrency_sem));
         if (lock_f.failed()) {
             auto ex = lock_f.get_exception();
             if (is_timeout_exception(ex)) {

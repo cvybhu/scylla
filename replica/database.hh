@@ -1333,6 +1333,7 @@ private:
     drain_progress _drain_progress {};
 
     reader_concurrency_semaphore _read_concurrency_sem;
+    reader_concurrency_semaphore _view_read_concurrency_sem;
     reader_concurrency_semaphore _streaming_concurrency_sem;
     reader_concurrency_semaphore _compaction_concurrency_sem;
     reader_concurrency_semaphore _system_read_concurrency_sem;
